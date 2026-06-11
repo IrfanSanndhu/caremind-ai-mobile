@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1284" height="2778" viewBox="0 0 1284 2778">
+  <defs>
+    <linearGradient id="splash-bg" x1="0" y1="0" x2="1284" y2="2778" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0284C7"/>
+      <stop offset="0.35" stop-color="#0EA5E9"/>
+      <stop offset="0.7" stop-color="#0EA5E9"/>
+      <stop offset="1" stop-color="#6366F1"/>
+    </linearGradient>
+    <linearGradient id="cm-bg" x1="342" y1="1082" x2="942" y2="1682" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#38BDF8"/>
+      <stop offset="0.45" stop-color="#0EA5E9"/>
+      <stop offset="1" stop-color="#6366F1"/>
+    </linearGradient>
+    <linearGradient id="cm-pulse" x1="420" y1="1382" x2="864" y2="1382" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.95"/>
+      <stop offset="1" stop-color="#E0F2FE"/>
+    </linearGradient>
+  </defs>
+  <rect width="1284" height="2778" fill="url(#splash-bg)"/>
+  <circle cx="200" cy="420" r="180" fill="#ffffff" fill-opacity="0.06"/>
+  <circle cx="1080" cy="2350" r="280" fill="#ffffff" fill-opacity="0.05"/>
+  <rect x="342" y="1082" width="600" height="600" rx="150" fill="url(#cm-bg)"/>
+  <rect x="362" y="1102" width="560" height="560" rx="140" fill="none" stroke="#ffffff" stroke-opacity="0.14" stroke-width="20"/>
+  <path
+    d="M432 1382h60l33.6-97.2 67.2 194.4 67.2-145.8 41.4 48.6H852"
+    fill="none"
+    stroke="url(#cm-pulse)"
+    stroke-width="45"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+  <circle cx="786" cy="1208" r="33" fill="#ffffff" fill-opacity="0.95"/>
+  <text x="642" y="1820" text-anchor="middle" font-family="system-ui, -apple-system, Helvetica, Arial, sans-serif" font-size="88" font-weight="700" fill="#ffffff">CareMind AI</text>
+  <text x="642" y="1910" text-anchor="middle" font-family="system-ui, -apple-system, Helvetica, Arial, sans-serif" font-size="36" font-weight="500" fill="#ffffff" fill-opacity="0.82">Smarter care, powered by AI</text>
+</svg>
