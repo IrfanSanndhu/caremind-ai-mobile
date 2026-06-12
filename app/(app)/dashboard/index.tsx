@@ -386,7 +386,15 @@ function DoctorDashboard() {
     <View className="flex-1">
       <AppHeader subtitle="Your schedule and tasks for today" />
       <PageContainer refreshing={isRefetching} onRefresh={() => void refetch()}>
-      <View className="mb-4 flex-row justify-end">
+      <View className="mb-4 flex-row justify-end gap-2">
+        <Button
+          size="sm"
+          variant="outline"
+          leftIcon={<FileText size={16} color={colors.primary.DEFAULT} />}
+          onPress={() => router.push('/(app)/documents/upload' as never)}
+        >
+          Documents
+        </Button>
         <Button size="sm" onPress={() => router.push('/(app)/booking' as never)}>
           Booking
         </Button>

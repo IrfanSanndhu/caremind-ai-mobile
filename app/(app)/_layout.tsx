@@ -30,6 +30,9 @@ function shouldHideTabBar(segments: string[]): boolean {
   if (section === 'profile') {
     return true;
   }
+  if (section === 'documents' && child !== 'index') {
+    return true;
+  }
 
   return false;
 }
@@ -70,7 +73,7 @@ export default function AppLayout() {
       <Tabs.Screen name="audit/index" options={{ title: 'Audit' }} />
       <Tabs.Screen name="patients" options={{ title: 'Patients' }} />
       <Tabs.Screen name="ai/index" options={{ title: 'AI' }} />
-      <Tabs.Screen name="documents/index" options={{ title: 'Documents' }} />
+      <Tabs.Screen name="documents" options={{ title: 'Documents' }} />
       <Tabs.Screen name="profile/index" options={{ href: null }} />
       <Tabs.Screen name="admin/audit-logs" options={{ href: null }} />
       <Tabs.Screen name="ai-assistant/index" options={{ href: null }} />

@@ -73,7 +73,7 @@ const TAB_DEFINITIONS: TabDefinition[] = [
     Icon: BrainCircuit,
   },
   {
-    name: 'documents/index',
+    name: 'documents',
     label: 'Documents',
     roles: [UserRole.PATIENT],
     Icon: FileText,
