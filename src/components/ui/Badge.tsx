@@ -40,7 +40,11 @@ export function Badge({ variant = 'default', children, className, pulse = false 
       {pulse ? (
         <View className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: colors.pulse }} />
       ) : null}
-      <Text className="text-xs font-inter-medium" style={{ color: colors.text }}>
+      <Text
+        className="text-xs font-inter-medium"
+        style={{ color: colors.text }}
+        numberOfLines={1}
+      >
         {children}
       </Text>
     </View>

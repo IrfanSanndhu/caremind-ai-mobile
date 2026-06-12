@@ -5,7 +5,31 @@ import { Spinner } from '@/components/ui';
 import { useAuthStore } from '@/stores/auth.store';
 
 function shouldHideTabBar(segments: string[]): boolean {
-  return segments.some((segment) => segment === '[id]' || segment === 'consultation');
+  const appSegments = segments[0] === '(app)' ? segments.slice(1) : [...segments];
+
+  if (appSegments.includes('consultation')) {
+    return true;
+  }
+
+  const [section, child] = appSegments;
+  if (!section || !child) {
+    return false;
+  }
+
+  if (section === 'appointments' && child !== 'index') {
+    return true;
+  }
+  if (section === 'patients' && child !== 'index') {
+    return true;
+  }
+  if (section === 'ai-outputs') {
+    return true;
+  }
+  if (section === 'profile') {
+    return true;
+  }
+
+  return false;
 }
 
 export default function AppLayout() {
@@ -36,21 +60,17 @@ export default function AppLayout() {
       }}
     >
       <Tabs.Screen name="dashboard/index" options={{ title: 'Dashboard' }} />
-      <Tabs.Screen name="appointments/index" options={{ title: 'Appointments' }} />
+      <Tabs.Screen name="appointments" options={{ title: 'Appointments' }} />
       <Tabs.Screen name="booking/index" options={{ title: 'Book' }} />
       <Tabs.Screen name="users/index" options={{ title: 'Users' }} />
       <Tabs.Screen name="audit/index" options={{ title: 'Audit' }} />
-      <Tabs.Screen name="patients/index" options={{ title: 'Patients' }} />
+      <Tabs.Screen name="patients" options={{ title: 'Patients' }} />
       <Tabs.Screen name="ai/index" options={{ title: 'AI' }} />
       <Tabs.Screen name="documents/index" options={{ title: 'Documents' }} />
       <Tabs.Screen name="profile/index" options={{ href: null }} />
       <Tabs.Screen name="admin/audit-logs" options={{ href: null }} />
       <Tabs.Screen name="ai-assistant/index" options={{ href: null }} />
-      <Tabs.Screen name="ai-outputs/index" options={{ href: null }} />
-      <Tabs.Screen name="ai-outputs/[appointmentId]" options={{ href: null }} />
-      <Tabs.Screen name="patients/[id]" options={{ href: null }} />
-      <Tabs.Screen name="appointments/[id]/index" options={{ href: null }} />
-      <Tabs.Screen name="appointments/[id]/consultation" options={{ href: null }} />
+      <Tabs.Screen name="ai-outputs" options={{ href: null }} />
     </Tabs>
   );
 }

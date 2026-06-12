@@ -496,7 +496,7 @@ function DoctorDashboard() {
         <Text className="mb-4 text-sm text-muted">
           AI outputs awaiting your approval before patients can see summaries.
         </Text>
-        <Button variant="outline" size="sm" onPress={() => router.push('/(app)/ai' as never)}>
+        <Button variant="outline" size="sm" onPress={() => router.push('/(app)/ai-outputs' as never)}>
           Review AI Outputs
         </Button>
       </Card>
@@ -506,7 +506,7 @@ function DoctorDashboard() {
         {[
           { label: 'AI Assistant', icon: BrainCircuit, to: '/(app)/ai' },
           { label: 'View Documents', icon: FileText, to: '/(app)/documents' },
-          { label: 'AI Outputs', icon: FileCheck, to: '/(app)/ai' },
+          { label: 'AI Outputs', icon: FileCheck, to: '/(app)/ai-outputs' },
         ].map((action) => (
           <Pressable
             key={action.label}

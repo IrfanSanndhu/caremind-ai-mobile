@@ -37,7 +37,7 @@ const TAB_DEFINITIONS: TabDefinition[] = [
     Icon: LayoutDashboard,
   },
   {
-    name: 'appointments/index',
+    name: 'appointments',
     label: 'Appointments',
     roles: [UserRole.ADMIN, UserRole.DOCTOR, UserRole.PATIENT],
     Icon: Calendar,
@@ -61,7 +61,7 @@ const TAB_DEFINITIONS: TabDefinition[] = [
     Icon: ScrollText,
   },
   {
-    name: 'patients/index',
+    name: 'patients',
     label: 'Patients',
     roles: [UserRole.DOCTOR],
     Icon: Users,

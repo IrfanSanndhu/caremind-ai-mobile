@@ -81,7 +81,7 @@ function AiOutputsScreen() {
       <ScreenHeader
         title="AI Outputs"
         subtitle="Appointments with outputs pending review"
-        showBack={false}
+        fallbackHref="/(app)/dashboard"
       />
 
       {isLoading || statusesLoading ? (

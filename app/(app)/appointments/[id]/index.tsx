@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -12,9 +12,9 @@ import { InCallBadge } from '@/components/shared/InCallBadge';
 import { useLivePresence } from '@/hooks/useLivePresence';
 import { documentsApi, documentKeys } from '@/api/documents.api';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
+import { OutputCard } from '@/components/ai-outputs/OutputCard';
 import { MarkdownContent } from '@/components/shared/MarkdownContent';
 import {
-  AiOutputStatusBadge,
   AppointmentStatusBadge,
   ConsentStatusBadge,
   DocumentStatusBadge,
@@ -33,7 +33,6 @@ import {
   UserRole,
   type AppointmentStatus as Status,
 } from '@/types';
-import { getAiOutputTypeLabel } from '@/utils/ai-output-labels';
 import { cn } from '@/utils/cn';
 import { formatDateTime } from '@/utils/formatDate';
 
@@ -92,12 +91,20 @@ export default function AppointmentDetailScreen() {
     retry: 1,
   });
 
-  const { data: aiOutputs = [], isLoading: aiLoading } = useQuery({
+  const {
+    data: aiOutputs = [],
+    isLoading: aiLoading,
+    refetch: refetchAiOutputs,
+  } = useQuery({
     queryKey: aiOutputKeys.byAppointment(appointmentId),
     queryFn: () => aiOutputsApi.getByAppointment(appointmentId),
     enabled: Boolean(appointmentId) && tab === 'ai-outputs',
     retry: 1,
   });
+
+  const onAiOutputsRefresh = useCallback(() => {
+    void refetchAiOutputs();
+  }, [refetchAiOutputs]);
 
   const { data: documentsPage, isLoading: docsLoading } = useQuery({
     queryKey: documentKeys.list({ appointmentId, patientId: appointment?.patientId }),
@@ -206,6 +213,7 @@ export default function AppointmentDetailScreen() {
       <ScreenHeader
         title="Appointment"
         subtitle={formatDateTime(appointment.scheduledAt)}
+        fallbackHref="/(app)/appointments"
         rightAction={<AppointmentStatusBadge status={appointment.status} />}
       />
 
@@ -423,15 +431,7 @@ export default function AppointmentDetailScreen() {
               />
             ) : (
               aiOutputs.map((output) => (
-                <Card key={output.id} className="mb-3">
-                  <View className="mb-2 flex-row items-center justify-between gap-2">
-                    <Text className="flex-1 font-inter-semibold text-slate-900">
-                      {getAiOutputTypeLabel(output.type)}
-                    </Text>
-                    <AiOutputStatusBadge status={output.status} />
-                  </View>
-                  <MarkdownContent content={output.currentContent} />
-                </Card>
+                <OutputCard key={output.id} output={output} onRefresh={onAiOutputsRefresh} />
               ))
             )}
           </View>

@@ -87,6 +87,7 @@ export default function AiAssistantIndexScreen() {
   const [streamingContent, setStreamingContent] = useState('');
   const [escalated, setEscalated] = useState(false);
   const [isDoctorMode, setIsDoctorMode] = useState(false);
+  const copilotDefaultAppliedRef = useRef(false);
   const [selectedAppointmentId, setSelectedAppointmentId] = useState('');
   const [selectedPatientId, setSelectedPatientId] = useState('');
 
@@ -263,6 +264,12 @@ export default function AiAssistantIndexScreen() {
   }, []);
 
   useEffect(() => {
+    if (copilotDefaultAppliedRef.current || role !== UserRole.DOCTOR) return;
+    setIsDoctorMode(true);
+    copilotDefaultAppliedRef.current = true;
+  }, [role]);
+
+  useEffect(() => {
     if (listData.length > 0) {
       listRef.current?.scrollToOffset({ offset: 0, animated: true });
     }
@@ -315,38 +322,48 @@ export default function AiAssistantIndexScreen() {
       />
 
       <View className="border-b border-border bg-white px-4 py-3">
-        <View className="mb-2 flex-row items-center justify-end gap-1">
-          {messages.length > 0 ? (
-            <Pressable
-              onPress={clearChat}
-              className="h-9 w-9 items-center justify-center rounded-md active:bg-surface"
-              accessibilityLabel="Clear chat"
-            >
-              <RotateCcw size={18} color={colors.muted} />
-            </Pressable>
-          ) : null}
-          {isStaff ? (
-            <Pressable
-              onPress={() => setIsDoctorMode((v) => !v)}
-              className={cn(
-                'h-9 w-9 items-center justify-center rounded-md',
-                isDoctorMode ? 'bg-secondary' : 'active:bg-surface',
-              )}
-              accessibilityLabel="Toggle doctor copilot mode"
-            >
-              <Stethoscope size={18} color={isDoctorMode ? colors.white : colors.muted} />
-            </Pressable>
-          ) : null}
-        </View>
-        <View className="mb-2 flex-row items-center gap-2">
-          <View className="h-9 w-9 items-center justify-center rounded-xl bg-primary-50">
-            <BrainCircuit size={20} color={colors.primary.DEFAULT} />
+        <View className="mb-2 flex-row items-center justify-between gap-2">
+          <View className="min-w-0 flex-1 flex-row items-center gap-2">
+            <View className="h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary-50">
+              <BrainCircuit size={20} color={colors.primary.DEFAULT} />
+            </View>
+            <Text className="flex-1 text-sm text-muted">
+              {isDoctorMode
+                ? 'Ask clinical questions with patient context'
+                : 'Ask about medications, symptoms, or appointments'}
+            </Text>
           </View>
-          <Text className="text-sm text-muted">
-            {isDoctorMode
-              ? 'Ask clinical questions with patient context'
-              : 'Ask about medications, symptoms, or appointments'}
-          </Text>
+          <View className="shrink-0 flex-row items-center gap-1">
+            {messages.length > 0 ? (
+              <Pressable
+                onPress={clearChat}
+                className="h-9 w-9 items-center justify-center rounded-md active:bg-surface"
+                accessibilityLabel="Clear chat"
+              >
+                <RotateCcw size={18} color={colors.muted} />
+              </Pressable>
+            ) : null}
+            {isStaff ? (
+              <Pressable
+                onPress={() => setIsDoctorMode((v) => !v)}
+                className={cn(
+                  'flex-row items-center gap-2 rounded-lg px-3 py-2',
+                  isDoctorMode ? 'bg-secondary' : 'border border-border bg-surface active:bg-slate-100',
+                )}
+                accessibilityLabel="Toggle doctor copilot mode"
+              >
+                <Stethoscope size={16} color={isDoctorMode ? colors.white : colors.muted} />
+                <Text
+                  className={cn(
+                    'text-sm font-inter-medium',
+                    isDoctorMode ? 'text-white' : 'text-muted',
+                  )}
+                >
+                  {isDoctorMode ? 'Copilot Mode' : 'Switch to Copilot'}
+                </Text>
+              </Pressable>
+            ) : null}
+          </View>
         </View>
 
         {!isDoctorMode && appointmentOptions.length > 0 ? (

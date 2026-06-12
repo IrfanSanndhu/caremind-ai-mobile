@@ -85,7 +85,11 @@ export default function PatientDetailScreen() {
 
   return (
     <View className="flex-1 bg-surface">
-      <ScreenHeader title={fullName} subtitle={`${patient.sessionCount ?? 0} total sessions`} />
+      <ScreenHeader
+        title={fullName}
+        subtitle={`${patient.sessionCount ?? 0} total sessions`}
+        fallbackHref="/(app)/patients"
+      />
 
       <View className="px-4 pt-4">
         <View className="mb-4 flex-row items-center gap-3">

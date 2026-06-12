@@ -66,6 +66,7 @@ export function Button({
   haptic = true,
   disabled,
   onPress,
+  style,
   ...props
 }: ButtonProps) {
   const isDisabled = disabled || loading;
@@ -92,6 +93,7 @@ export function Button({
         isDisabled && 'opacity-50',
         className,
       )}
+      style={style}
       {...props}
     >
       {loading ? (

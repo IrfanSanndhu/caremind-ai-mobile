@@ -19,7 +19,7 @@ import {
   useToast,
 } from '@/components/ui';
 import { PageContainer } from '@/components/layout/PageContainer';
-import { AppHeader } from '@/components/layout/AppHeader';
+import { ScreenHeader } from '@/components/layout/ScreenHeader';
 import { useLogout } from '@/hooks/useLogout';
 import { hydrateAuthProfileAfterLogin } from '@/hooks/useAuthProfile';
 import { useAuthStore } from '@/stores/auth.store';
@@ -140,7 +140,11 @@ export default function ProfilePage() {
 
   return (
     <View className="flex-1 bg-surface">
-      <AppHeader subtitle="Account and security" showProfileAction={false} />
+      <ScreenHeader
+        title="Profile"
+        subtitle="Account and security"
+        fallbackHref="/(app)/dashboard"
+      />
 
       <PageContainer contentClassName="gap-4 max-w-2xl mx-auto w-full">
         <Card>
