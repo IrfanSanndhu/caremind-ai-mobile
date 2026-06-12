@@ -37,12 +37,13 @@ export default function AppLayout() {
     >
       <Tabs.Screen name="dashboard/index" options={{ title: 'Dashboard' }} />
       <Tabs.Screen name="appointments/index" options={{ title: 'Appointments' }} />
+      <Tabs.Screen name="booking/index" options={{ title: 'Book' }} />
       <Tabs.Screen name="users/index" options={{ title: 'Users' }} />
       <Tabs.Screen name="audit/index" options={{ title: 'Audit' }} />
       <Tabs.Screen name="patients/index" options={{ title: 'Patients' }} />
       <Tabs.Screen name="ai/index" options={{ title: 'AI' }} />
       <Tabs.Screen name="documents/index" options={{ title: 'Documents' }} />
-      <Tabs.Screen name="profile/index" options={{ title: 'Profile' }} />
+      <Tabs.Screen name="profile/index" options={{ href: null }} />
       <Tabs.Screen name="admin/audit-logs" options={{ href: null }} />
       <Tabs.Screen name="ai-assistant/index" options={{ href: null }} />
       <Tabs.Screen name="ai-outputs/index" options={{ href: null }} />

@@ -5,7 +5,11 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Brain, Calendar, Clock, FileCheck, FileText, User } from 'lucide-react-native';
 import { aiOutputsApi, aiOutputKeys } from '@/api/aiOutputs.api';
 import { appointmentsApi, appointmentKeys } from '@/api/appointments.api';
+import { bookingApi } from '@/api/booking.api';
+import { dashboardKeys } from '@/api/dashboard.api';
 import { consultationsApi, consultationKeys } from '@/api/consultations.api';
+import { InCallBadge } from '@/components/shared/InCallBadge';
+import { useLivePresence } from '@/hooks/useLivePresence';
 import { documentsApi, documentKeys } from '@/api/documents.api';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
 import { MarkdownContent } from '@/components/shared/MarkdownContent';
@@ -68,6 +72,7 @@ export default function AppointmentDetailScreen() {
   const role = useAuthStore((s) => s.role);
   const queryClient = useQueryClient();
   const toast = useToast();
+  const { data: livePresence } = useLivePresence();
 
   const [tab, setTab] = useState<TabKey>('overview');
   const [cancelOpen, setCancelOpen] = useState(false);
@@ -139,6 +144,30 @@ export default function AppointmentDetailScreen() {
     onError: () => toast.show({ title: 'Failed to update appointment', variant: 'error' }),
   });
 
+  const approveMutation = useMutation({
+    mutationFn: () => bookingApi.approveRequest(appointmentId),
+    onSuccess: () => {
+      toast.show({ title: 'Appointment approved', variant: 'success' });
+      void queryClient.invalidateQueries({ queryKey: appointmentKeys.all });
+      void queryClient.invalidateQueries({ queryKey: appointmentKeys.detail(appointmentId) });
+      void queryClient.invalidateQueries({ queryKey: dashboardKeys.doctor });
+      void queryClient.invalidateQueries({ queryKey: dashboardKeys.patient });
+    },
+    onError: () => toast.show({ title: 'Failed to approve', variant: 'error' }),
+  });
+
+  const rejectMutation = useMutation({
+    mutationFn: () => bookingApi.rejectRequest(appointmentId),
+    onSuccess: () => {
+      toast.show({ title: 'Request declined', variant: 'success' });
+      void queryClient.invalidateQueries({ queryKey: appointmentKeys.all });
+      void queryClient.invalidateQueries({ queryKey: appointmentKeys.detail(appointmentId) });
+      void queryClient.invalidateQueries({ queryKey: dashboardKeys.doctor });
+      void queryClient.invalidateQueries({ queryKey: dashboardKeys.patient });
+    },
+    onError: () => toast.show({ title: 'Failed to decline', variant: 'error' }),
+  });
+
   if (isLoading) {
     return (
       <View className="flex-1 bg-surface">
@@ -161,13 +190,16 @@ export default function AppointmentDetailScreen() {
     );
   }
 
+  const isPending = appointment.status === AppointmentStatus.PENDING_APPROVAL;
   const canJoin =
+    !isPending &&
     (appointment.status === AppointmentStatus.SCHEDULED ||
       appointment.status === AppointmentStatus.IN_PROGRESS) &&
     (role === UserRole.DOCTOR ||
       (role === UserRole.PATIENT && appointment.consentStatus === ConsentStatus.ACCEPTED));
 
   const isStaff = role === UserRole.ADMIN || role === UserRole.DOCTOR;
+  const inCallParticipants = livePresence?.[appointmentId]?.participants;
 
   return (
     <View className="flex-1 bg-surface">
@@ -182,7 +214,33 @@ export default function AppointmentDetailScreen() {
         contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
         showsVerticalScrollIndicator={false}
       >
+        {inCallParticipants?.length ? (
+          <View className="mb-4">
+            <InCallBadge participants={inCallParticipants} />
+          </View>
+        ) : null}
+
         <View className="mb-4 flex-row flex-wrap gap-2">
+          {isStaff && isPending ? (
+            <>
+              <Button
+                size="sm"
+                loading={approveMutation.isPending}
+                onPress={() => approveMutation.mutate()}
+              >
+                Approve
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                loading={rejectMutation.isPending}
+                onPress={() => rejectMutation.mutate()}
+              >
+                Decline
+              </Button>
+            </>
+          ) : null}
+
           {canJoin ? (
             <Button
               size="sm"

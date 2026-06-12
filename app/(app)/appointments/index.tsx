@@ -5,8 +5,13 @@ import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-q
 import { useRouter } from 'expo-router';
 import { Calendar, Plus, Search } from 'lucide-react-native';
 import { appointmentsApi, appointmentKeys } from '@/api/appointments.api';
+import { bookingApi } from '@/api/booking.api';
+import { dashboardKeys } from '@/api/dashboard.api';
 import { getApiErrorMessage } from '@/api/errors';
+import { ScheduleAppointmentSheet } from '@/components/appointments/ScheduleAppointmentSheet';
 import { AppHeader } from '@/components/layout/AppHeader';
+import { InCallBadge } from '@/components/shared/InCallBadge';
+import { useLivePresence } from '@/hooks/useLivePresence';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -25,6 +30,7 @@ const PAGE_SIZE = 10;
 
 const STATUS_TABS: { label: string; value: Status | 'all' }[] = [
   { label: 'All', value: 'all' },
+  { label: 'Pending', value: AppointmentStatus.PENDING_APPROVAL },
   { label: 'Scheduled', value: AppointmentStatus.SCHEDULED },
   { label: 'In Progress', value: AppointmentStatus.IN_PROGRESS },
   { label: 'Completed', value: AppointmentStatus.COMPLETED },
@@ -39,7 +45,10 @@ function AppointmentListItem({
   onStart,
   onComplete,
   onCancel,
+  onApprove,
+  onDecline,
   actionLoading,
+  inCallParticipants,
 }: {
   appt: Appointment;
   role: string | null;
@@ -48,11 +57,16 @@ function AppointmentListItem({
   onStart: () => void;
   onComplete: () => void;
   onCancel: () => void;
+  onApprove: () => void;
+  onDecline: () => void;
   actionLoading: boolean;
+  inCallParticipants?: { identity: string; name: string; role?: string }[];
 }) {
   const isStaff = role === UserRole.DOCTOR || role === UserRole.ADMIN;
+  const isPending = appt.status === AppointmentStatus.PENDING_APPROVAL;
   const showJoin =
-    appt.status === AppointmentStatus.SCHEDULED || appt.status === AppointmentStatus.IN_PROGRESS;
+    !isPending &&
+    (appt.status === AppointmentStatus.SCHEDULED || appt.status === AppointmentStatus.IN_PROGRESS);
 
   return (
     <Pressable onPress={onPress} className="mb-3 active:opacity-90">
@@ -70,11 +84,34 @@ function AppointmentListItem({
               Dr. {appt.doctor?.firstName} {appt.doctor?.lastName}
             </Text>
             <Text className="mt-1 text-sm text-muted">{formatDateTime(appt.scheduledAt)}</Text>
-            <View className="mt-2">
+            <View className="mt-2 flex-row flex-wrap items-center gap-2">
               <AppointmentStatusBadge status={appt.status} />
+              {inCallParticipants?.length ? (
+                <InCallBadge participants={inCallParticipants} compact />
+              ) : null}
             </View>
 
             <View className="mt-3 flex-row flex-wrap gap-2">
+              {isStaff && isPending ? (
+                <>
+                  <Button
+                    size="sm"
+                    loading={actionLoading}
+                    onPress={onApprove}
+                  >
+                    Approve
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    loading={actionLoading}
+                    onPress={onDecline}
+                  >
+                    Decline
+                  </Button>
+                </>
+              ) : null}
+
               {showJoin ? (
                 <Button
                   size="sm"
@@ -151,10 +188,12 @@ export default function AppointmentsScreen() {
   const role = useAuthStore((s) => s.role);
   const queryClient = useQueryClient();
   const toast = useToast();
+  const { data: livePresence } = useLivePresence();
 
   const [statusFilter, setStatusFilter] = useState<Status | 'all'>('all');
   const [search, setSearch] = useState('');
   const [actionId, setActionId] = useState<string | null>(null);
+  const [scheduleOpen, setScheduleOpen] = useState(false);
 
   const listParams = useMemo(
     () => ({
@@ -222,6 +261,34 @@ export default function AppointmentsScreen() {
     onSettled: () => setActionId(null),
   });
 
+  const approveMutation = useMutation({
+    mutationFn: (id: string) => bookingApi.approveRequest(id),
+    onMutate: (id) => setActionId(id),
+    onSuccess: () => {
+      toast.show({ title: 'Appointment approved', variant: 'success' });
+      invalidateAppointments();
+      void queryClient.invalidateQueries({ queryKey: dashboardKeys.doctor });
+      void queryClient.invalidateQueries({ queryKey: dashboardKeys.patient });
+    },
+    onError: (err) =>
+      toast.show({ title: getApiErrorMessage(err, 'Failed to approve'), variant: 'error' }),
+    onSettled: () => setActionId(null),
+  });
+
+  const rejectMutation = useMutation({
+    mutationFn: (id: string) => bookingApi.rejectRequest(id),
+    onMutate: (id) => setActionId(id),
+    onSuccess: () => {
+      toast.show({ title: 'Request declined', variant: 'success' });
+      invalidateAppointments();
+      void queryClient.invalidateQueries({ queryKey: dashboardKeys.doctor });
+      void queryClient.invalidateQueries({ queryKey: dashboardKeys.patient });
+    },
+    onError: (err) =>
+      toast.show({ title: getApiErrorMessage(err, 'Failed to decline'), variant: 'error' }),
+    onSettled: () => setActionId(null),
+  });
+
   const onRefresh = useCallback(() => {
     void refetch();
   }, [refetch]);
@@ -232,7 +299,8 @@ export default function AppointmentsScreen() {
     }
   }, [fetchNextPage, hasNextPage, isFetchingNextPage, searchLower]);
 
-  const showFab = role === UserRole.DOCTOR || role === UserRole.ADMIN;
+  const isStaff = role === UserRole.DOCTOR || role === UserRole.ADMIN;
+  const showFab = isStaff || role === UserRole.PATIENT;
 
   const listHeader = (
     <View className="mb-4">
@@ -318,20 +386,32 @@ export default function AppointmentsScreen() {
               })
             }
             onCancel={() => cancelMutation.mutate(item.id)}
+            onApprove={() => approveMutation.mutate(item.id)}
+            onDecline={() => rejectMutation.mutate(item.id)}
+            inCallParticipants={livePresence?.[item.id]?.participants}
           />
         )}
       />
 
+      {isStaff ? (
+        <ScheduleAppointmentSheet
+          visible={scheduleOpen}
+          onClose={() => setScheduleOpen(false)}
+          role={role}
+        />
+      ) : null}
+
       {showFab ? (
         <Pressable
-          onPress={() =>
-            toast.show({
-              title: 'Schedule appointment',
-              description: 'Scheduling flow will open here in a future update.',
-            })
-          }
+          onPress={() => {
+            if (isStaff) {
+              setScheduleOpen(true);
+            } else {
+              router.push('/(app)/booking' as never);
+            }
+          }}
           accessibilityRole="button"
-          accessibilityLabel="Schedule appointment"
+          accessibilityLabel={isStaff ? 'Schedule appointment' : 'Book appointment'}
           className="absolute bottom-5 right-5 h-14 w-14 items-center justify-center rounded-full bg-primary shadow-lg active:opacity-90"
           style={{
             shadowColor: colors.primary.DEFAULT,

@@ -11,6 +11,7 @@ const appointmentStatusConfig: Record<
   { label: string; variant: BadgeVariant; pulse?: boolean }
 > = {
   scheduled: { label: 'Scheduled', variant: 'primary' },
+  pending_approval: { label: 'Pending Approval', variant: 'warning' },
   in_progress: { label: 'In Progress', variant: 'warning', pulse: true },
   completed: { label: 'Completed', variant: 'success' },
   cancelled: { label: 'Cancelled', variant: 'danger' },

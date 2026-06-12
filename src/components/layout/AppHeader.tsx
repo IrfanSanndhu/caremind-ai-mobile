@@ -9,6 +9,7 @@ import { UserRole } from '@/types';
 import { getUserDisplayName } from '@/utils/display-name';
 import { getTimeGreeting } from '@/utils/greeting';
 import { Avatar } from '@/components/ui/Avatar';
+import { NotificationBell } from '@/components/layout/NotificationBell';
 
 export interface AppHeaderProps {
   subtitle?: string;
@@ -52,25 +53,28 @@ export function AppHeader({ subtitle, showProfileAction = true }: AppHeaderProps
             ) : null}
           </View>
 
-          {showProfileAction ? (
-            <Pressable
-              onPress={() => router.push('/(app)/profile')}
-              accessibilityRole="button"
-              accessibilityLabel="Open profile and settings"
-              className="items-center active:opacity-85"
-            >
-              <View className="rounded-full border-2 border-white/40 p-0.5">
-                {user ? (
-                  <Avatar name={displayName} size="md" />
-                ) : (
-                  <View className="h-10 w-10 items-center justify-center rounded-full bg-white/20">
-                    <User size={20} color={colors.white} />
-                  </View>
-                )}
-              </View>
-              <Text className="mt-1 text-[10px] font-inter-medium text-white/80">Profile</Text>
-            </Pressable>
-          ) : null}
+          <View className="flex-row items-center gap-2">
+            <NotificationBell />
+            {showProfileAction ? (
+              <Pressable
+                onPress={() => router.push('/(app)/profile')}
+                accessibilityRole="button"
+                accessibilityLabel="Open profile and settings"
+                className="items-center active:opacity-85"
+              >
+                <View className="rounded-full border-2 border-white/40 p-0.5">
+                  {user ? (
+                    <Avatar name={displayName} size="md" />
+                  ) : (
+                    <View className="h-10 w-10 items-center justify-center rounded-full bg-white/20">
+                      <User size={20} color={colors.white} />
+                    </View>
+                  )}
+                </View>
+                {/* <Text className="mt-1 text-[10px] font-inter-medium text-white/80">Profile</Text> */}
+              </Pressable>
+            ) : null}
+          </View>
         </View>
       </View>
     </LinearGradient>

@@ -1,8 +1,9 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Link, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { Activity, Eye, EyeOff, Shield } from 'lucide-react-native';
 import { useCallback, useState } from 'react';
+import { exitAppOnBack, useAuthBackHandler } from '@/hooks/useAuthBackHandler';
 import { Controller, useForm } from 'react-hook-form';
 import {
   KeyboardAvoidingView,
@@ -55,6 +56,16 @@ export default function LoginScreen() {
 
   const finishLogin = useCallback(() => {
     router.replace('/(app)/dashboard');
+  }, [router]);
+
+  useAuthBackHandler(exitAppOnBack);
+
+  const goToRegister = useCallback(() => {
+    router.replace('/(auth)/register');
+  }, [router]);
+
+  const goToForgotPassword = useCallback(() => {
+    router.replace('/(auth)/forgot-password');
   }, [router]);
 
   const {
@@ -261,6 +272,15 @@ export default function LoginScreen() {
                       )}
                     />
 
+                    <Pressable
+                      onPress={goToForgotPassword}
+                      className="-mt-1 self-end py-1 active:opacity-70"
+                      accessibilityRole="button"
+                      accessibilityLabel="Forgot password"
+                    >
+                      <Text className="text-sm font-inter-medium text-primary">Forgot password?</Text>
+                    </Pressable>
+
                     <Controller
                       control={control}
                       name="rememberMe"
@@ -296,9 +316,13 @@ export default function LoginScreen() {
 
                   <Text className="mt-6 text-center text-sm text-muted">
                     New organization?{' '}
-                    <Link href="/(auth)/register" asChild>
-                      <Text className="font-inter-medium text-primary">Register here</Text>
-                    </Link>
+                    <Text
+                      onPress={goToRegister}
+                      className="font-inter-medium text-primary"
+                      accessibilityRole="link"
+                    >
+                      Register here
+                    </Text>
                   </Text>
                 </View>
               ) : (

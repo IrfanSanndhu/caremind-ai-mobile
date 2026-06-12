@@ -5,10 +5,10 @@ import * as Haptics from 'expo-haptics';
 import {
   BrainCircuit,
   Calendar,
+  CalendarCheck,
   FileText,
   LayoutDashboard,
   ScrollText,
-  User,
   Users,
   type LucideIcon,
 } from 'lucide-react-native';
@@ -43,6 +43,12 @@ const TAB_DEFINITIONS: TabDefinition[] = [
     Icon: Calendar,
   },
   {
+    name: 'booking/index',
+    label: 'Book',
+    roles: [UserRole.DOCTOR, UserRole.PATIENT],
+    Icon: CalendarCheck,
+  },
+  {
     name: 'users/index',
     label: 'Users',
     roles: [UserRole.ADMIN],
@@ -71,12 +77,6 @@ const TAB_DEFINITIONS: TabDefinition[] = [
     label: 'Documents',
     roles: [UserRole.PATIENT],
     Icon: FileText,
-  },
-  {
-    name: 'profile/index',
-    label: 'Profile',
-    roles: [UserRole.ADMIN, UserRole.DOCTOR, UserRole.PATIENT],
-    Icon: User,
   },
 ];
 

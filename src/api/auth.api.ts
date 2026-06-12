@@ -23,6 +23,7 @@ export interface AuthMeResponse {
   mfaEligible?: boolean;
   lastLogin?: string | null;
   createdAt?: string;
+  timezone?: string;
 }
 
 function mapMeToUser(data: AuthMeResponse): User {
@@ -38,6 +39,7 @@ function mapMeToUser(data: AuthMeResponse): User {
     mfaEligible: data.mfaEligible ?? true,
     lastLogin: data.lastLogin ?? undefined,
     createdAt: data.createdAt,
+    timezone: data.timezone ?? 'UTC',
   };
 }
 
@@ -159,6 +161,23 @@ export const authApi = {
 
   revokeTrustedDevice: async (deviceId: string): Promise<void> => {
     await apiClient.delete(`/api/auth/trusted-devices/${deviceId}`);
+  },
+
+  updateTimezone: async (timezone: string): Promise<{ timezone: string }> => {
+    const res = await apiClient.patch('/api/auth/me/timezone', { timezone });
+    return unwrap(res) as { timezone: string };
+  },
+
+  forgotPassword: async (email: string): Promise<{ success: boolean; message: string }> => {
+    const res = await apiClient.post('/api/auth/forgot-password', { email });
+    return unwrap(res) as { success: boolean; message: string };
+  },
+
+  resetPassword: async (payload: {
+    token: string;
+    newPassword: string;
+  }): Promise<void> => {
+    await apiClient.post('/api/auth/reset-password', payload);
   },
 };
 

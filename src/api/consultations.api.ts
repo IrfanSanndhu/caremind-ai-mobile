@@ -3,6 +3,7 @@ import { getLivekitUrl } from '@/lib/env';
 import type {
   ConsultationRecording,
   LiveKitTokenResponse,
+  LivePresenceMap,
   Transcript,
   TranscriptSegmentView,
 } from '@/types';
@@ -27,6 +28,11 @@ function mapTranscriptSegments(raw: unknown): TranscriptSegmentView[] | undefine
 const LIVEKIT_URL = getLivekitUrl();
 
 export const consultationsApi = {
+  getLivePresence: async (): Promise<LivePresenceMap> => {
+    const res = await apiClient.get('/api/consultations/live-presence');
+    return unwrap(res) as LivePresenceMap;
+  },
+
   getJoinToken: async (
     appointmentId: string,
   ): Promise<LiveKitTokenResponse & { requiresConsent?: boolean }> => {
@@ -37,7 +43,12 @@ export const consultationsApi = {
       return { requiresConsent: true, token: '', roomName: '', livekitUrl: LIVEKIT_URL };
     }
 
-    const tokenData = data as { token: string; roomName: string; livekitUrl?: string };
+    const tokenData = data as {
+      token: string;
+      roomName: string;
+      livekitUrl?: string;
+      appointmentStatus?: string;
+    };
     const jwt = typeof tokenData.token === 'string' ? tokenData.token : '';
     if (!jwt) {
       throw new Error('Invalid LiveKit token from server');
@@ -46,6 +57,7 @@ export const consultationsApi = {
       token: jwt,
       roomName: tokenData.roomName,
       livekitUrl: tokenData.livekitUrl ?? LIVEKIT_URL,
+      appointmentStatus: tokenData.appointmentStatus as LiveKitTokenResponse['appointmentStatus'],
     };
   },
 
@@ -104,4 +116,5 @@ export const consultationKeys = {
     [...consultationKeys.all, 'join-token', appointmentId] as const,
   transcript: (appointmentId: string) =>
     [...consultationKeys.all, 'transcript', appointmentId] as const,
+  livePresence: () => [...consultationKeys.all, 'live-presence'] as const,
 };

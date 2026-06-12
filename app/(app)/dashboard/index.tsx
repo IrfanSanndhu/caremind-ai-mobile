@@ -7,6 +7,7 @@ import {
   Calendar,
   ChevronRight,
   Clock,
+  Clock3,
   FileCheck,
   FileText,
   Stethoscope,
@@ -23,7 +24,10 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Select } from '@/components/ui/Select';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { PendingRequestsPanel } from '@/components/booking/PendingRequestsPanel';
+import { InCallBadge } from '@/components/shared/InCallBadge';
 import { AppointmentStatusBadge } from '@/components/shared/StatusBadge';
+import { useLivePresence } from '@/hooks/useLivePresence';
 import {
   ADMIN_DATE_PRESETS,
   formatPeriodLabel,
@@ -44,6 +48,7 @@ const DEFAULT_ADMIN_RANGE: AdminDateRangeParams = { preset: '7d' };
 
 const STATUS_BAR_COLORS: Record<string, string> = {
   [AppointmentStatus.SCHEDULED]: colors.primary.DEFAULT,
+  [AppointmentStatus.PENDING_APPROVAL]: colors.warning.DEFAULT,
   [AppointmentStatus.IN_PROGRESS]: colors.warning.DEFAULT,
   [AppointmentStatus.COMPLETED]: colors.success.DEFAULT,
   [AppointmentStatus.CANCELLED]: colors.danger.DEFAULT,
@@ -55,15 +60,24 @@ function StatCard({
   icon,
   loading,
   hint,
+  highlight,
 }: {
   label: string;
   value?: number;
   icon: ReactNode;
   loading?: boolean;
   hint?: string;
+  highlight?: boolean;
 }) {
   return (
-    <Card className="flex-1 min-w-[46%]">
+    <Card
+      className="flex-1 min-w-[46%]"
+      style={
+        highlight
+          ? { borderColor: colors.warning.DEFAULT, borderWidth: 1, backgroundColor: '#FFFBEB' }
+          : undefined
+      }
+    >
       <View className="mb-3 h-10 w-10 items-center justify-center rounded-xl bg-primary-50">
         {icon}
       </View>
@@ -174,11 +188,13 @@ function DashboardAppointmentRow({
   viewAs = 'doctor',
   onOpen,
   onJoin,
+  inCallParticipants,
 }: {
   appt: Appointment;
   viewAs?: 'doctor' | 'patient';
   onOpen: () => void;
   onJoin: () => void;
+  inCallParticipants?: { identity: string; name: string; role?: string }[];
 }) {
   const showJoin =
     appt.status === AppointmentStatus.SCHEDULED || appt.status === AppointmentStatus.IN_PROGRESS;
@@ -200,6 +216,11 @@ function DashboardAppointmentRow({
           {title}
         </Text>
         <Text className="text-xs text-muted">{formatDateTime(appt.scheduledAt)}</Text>
+        {inCallParticipants?.length ? (
+          <View className="mt-1">
+            <InCallBadge participants={inCallParticipants} compact />
+          </View>
+        ) : null}
       </View>
       <AppointmentStatusBadge status={appt.status} />
       {showJoin ? (
@@ -342,6 +363,7 @@ function AdminDashboard() {
 
 function DoctorDashboard() {
   const router = useRouter();
+  const { data: livePresence } = useLivePresence();
 
   const { data, isLoading, refetch, isRefetching } = useQuery({
     queryKey: dashboardKeys.doctor,
@@ -350,6 +372,7 @@ function DoctorDashboard() {
   });
 
   const stats = data?.stats;
+  const pendingBooking = data?.pendingBookingRequests ?? [];
   const inProgress = data?.inProgressAppointments ?? [];
   const upcoming = data?.upcomingAppointments ?? [];
   const scheduledUpcoming = upcoming.filter((a) => a.status === AppointmentStatus.SCHEDULED);
@@ -364,8 +387,8 @@ function DoctorDashboard() {
       <AppHeader subtitle="Your schedule and tasks for today" />
       <PageContainer refreshing={isRefetching} onRefresh={() => void refetch()}>
       <View className="mb-4 flex-row justify-end">
-        <Button size="sm" onPress={() => router.push('/(app)/appointments' as never)}>
-          Schedule
+        <Button size="sm" onPress={() => router.push('/(app)/booking' as never)}>
+          Booking
         </Button>
       </View>
 
@@ -375,6 +398,13 @@ function DoctorDashboard() {
           value={stats?.todayAppointments}
           icon={<Calendar size={20} color={colors.primary.DEFAULT} />}
           loading={isLoading}
+        />
+        <StatCard
+          label="Pending Requests"
+          value={stats?.pendingBookingRequests}
+          icon={<Clock3 size={20} color={colors.warning.DEFAULT} />}
+          loading={isLoading}
+          highlight={(stats?.pendingBookingRequests ?? 0) > 0}
         />
         <StatCard
           label="In Progress"
@@ -396,6 +426,10 @@ function DoctorDashboard() {
         />
       </View>
 
+      {pendingBooking.length > 0 ? (
+        <PendingRequestsPanel items={pendingBooking} loading={isLoading} />
+      ) : null}
+
       {inProgress.length > 0 ? (
         <Card className="mb-4">
           <SectionHeader
@@ -409,6 +443,7 @@ function DoctorDashboard() {
               appt={appt}
               onOpen={() => openAppointment(appt.id)}
               onJoin={() => joinConsultation(appt.id)}
+              inCallParticipants={livePresence?.[appt.id]?.participants}
             />
           ))}
         </Card>
@@ -443,6 +478,7 @@ function DoctorDashboard() {
               appt={appt}
               onOpen={() => openAppointment(appt.id)}
               onJoin={() => joinConsultation(appt.id)}
+              inCallParticipants={livePresence?.[appt.id]?.participants}
             />
           ))
         )}
@@ -490,6 +526,7 @@ function DoctorDashboard() {
 
 function PatientDashboard() {
   const router = useRouter();
+  const { data: livePresence } = useLivePresence();
 
   const { data, isLoading, refetch, isRefetching } = useQuery({
     queryKey: dashboardKeys.patient,
@@ -498,6 +535,7 @@ function PatientDashboard() {
   });
 
   const stats = data?.stats;
+  const pendingBooking = data?.pendingBookingRequests ?? [];
   const inProgress = data?.inProgressAppointments ?? [];
   const upcoming = data?.upcomingAppointments ?? [];
   const scheduledUpcoming = upcoming.filter((a) => a.status === AppointmentStatus.SCHEDULED);
@@ -511,12 +549,25 @@ function PatientDashboard() {
     <View className="flex-1">
       <AppHeader subtitle="Your health at a glance" />
       <PageContainer refreshing={isRefetching} onRefresh={() => void refetch()}>
+      <View className="mb-4 flex-row justify-end">
+        <Button size="sm" onPress={() => router.push('/(app)/booking' as never)}>
+          Book appointment
+        </Button>
+      </View>
+
       <View className="mb-4 flex-row flex-wrap gap-3">
         <StatCard
           label="Today's Appointments"
           value={stats?.todayAppointments}
           icon={<Calendar size={20} color={colors.primary.DEFAULT} />}
           loading={isLoading}
+        />
+        <StatCard
+          label="Awaiting Approval"
+          value={stats?.pendingBookingRequests}
+          icon={<Clock3 size={20} color={colors.warning.DEFAULT} />}
+          loading={isLoading}
+          highlight={(stats?.pendingBookingRequests ?? 0) > 0}
         />
         <StatCard
           label="In Progress"
@@ -532,6 +583,24 @@ function PatientDashboard() {
         />
       </View>
 
+      {pendingBooking.length > 0 ? (
+        <Card className="mb-4">
+          <SectionHeader
+            title="Pending booking requests"
+            subtitle="Waiting for doctor approval"
+          />
+          {pendingBooking.map((appt) => (
+            <DashboardAppointmentRow
+              key={appt.id}
+              appt={appt}
+              viewAs="patient"
+              onOpen={() => openAppointment(appt.id)}
+              onJoin={() => joinConsultation(appt.id)}
+            />
+          ))}
+        </Card>
+      ) : null}
+
       {inProgress.length > 0 ? (
         <Card className="mb-4">
           <SectionHeader
@@ -546,6 +615,7 @@ function PatientDashboard() {
               viewAs="patient"
               onOpen={() => openAppointment(appt.id)}
               onJoin={() => joinConsultation(appt.id)}
+              inCallParticipants={livePresence?.[appt.id]?.participants}
             />
           ))}
         </Card>
@@ -574,8 +644,8 @@ function PatientDashboard() {
                 ? 'No further scheduled appointments'
                 : 'No active or upcoming appointments'}
             </Text>
-            <Button size="sm" onPress={() => router.push('/(app)/appointments' as never)}>
-              View Appointments
+            <Button size="sm" onPress={() => router.push('/(app)/booking' as never)}>
+              Book appointment
             </Button>
           </View>
         ) : (
@@ -586,6 +656,7 @@ function PatientDashboard() {
               viewAs="patient"
               onOpen={() => openAppointment(appt.id)}
               onJoin={() => joinConsultation(appt.id)}
+              inCallParticipants={livePresence?.[appt.id]?.participants}
             />
           ))
         )}
@@ -594,6 +665,7 @@ function PatientDashboard() {
       <Card className="mb-4">
         <SectionHeader title="Quick Actions" />
         {[
+          { label: 'Book Appointment', icon: Calendar, to: '/(app)/booking' },
           { label: 'My Documents', icon: FileText, to: '/(app)/documents' },
           { label: 'AI Assistant', icon: BrainCircuit, to: '/(app)/ai' },
           { label: 'Appointments', icon: Calendar, to: '/(app)/appointments' },

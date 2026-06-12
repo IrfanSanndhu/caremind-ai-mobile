@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { UserRole } from '@/types';
 import { Text, View } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useForm, Controller } from 'react-hook-form';
@@ -25,6 +26,7 @@ import { useAuthStore } from '@/stores/auth.store';
 import { DEMO_EMAIL_DOMAIN, isDemoAccountEmail } from '@/constants/demo-accounts';
 import { colors } from '@/constants/colors';
 import type { TrustedDevice } from '@/types';
+import { TimezoneSelect } from '@/components/shared/TimezoneSelect';
 import { getUserDisplayName } from '@/utils/display-name';
 import { formatDateTime } from '@/utils/formatDate';
 
@@ -53,6 +55,23 @@ export default function ProfilePage() {
 
   const displayName = getUserDisplayName(user);
   const mfaEligible = user?.mfaEligible !== false && !isDemoAccountEmail(user?.email ?? '');
+  const canSetTimezone = user?.role === UserRole.ADMIN || user?.role === UserRole.DOCTOR;
+  const [timezone, setTimezone] = useState(user?.timezone ?? 'UTC');
+
+  useEffect(() => {
+    if (user?.timezone) setTimezone(user.timezone);
+  }, [user?.timezone]);
+
+  const timezoneMutation = useMutation({
+    mutationFn: (tz: string) => authApi.updateTimezone(tz),
+    onSuccess: async (data) => {
+      setTimezone(data.timezone);
+      showToast({ title: 'Timezone updated', variant: 'success' });
+      await hydrateAuthProfileAfterLogin();
+    },
+    onError: (err) =>
+      showToast({ title: getApiErrorMessage(err, 'Failed to update timezone'), variant: 'error' }),
+  });
 
   const passwordForm = useForm<PasswordFormValues>({
     resolver: zodResolver(passwordSchema),
@@ -142,6 +161,17 @@ export default function ProfilePage() {
             </View>
           </View>
         </Card>
+
+        {canSetTimezone ? (
+          <Card>
+            <Text className="mb-3 text-base font-inter-semibold text-slate-900">Timezone</Text>
+            <TimezoneSelect
+              value={timezone}
+              onChange={(tz) => timezoneMutation.mutate(tz)}
+              disabled={timezoneMutation.isPending}
+            />
+          </Card>
+        ) : null}
 
         <Card>
           <View className="mb-3 flex-row items-start justify-between gap-2">

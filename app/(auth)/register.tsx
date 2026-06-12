@@ -1,8 +1,9 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Link, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { Activity, Check, ChevronRight, Eye, EyeOff } from 'lucide-react-native';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
+import { goToLoginOnBack, useAuthBackHandler } from '@/hooks/useAuthBackHandler';
 import { Controller, useForm } from 'react-hook-form';
 import {
   KeyboardAvoidingView,
@@ -138,6 +139,20 @@ export default function RegisterScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+
+  const goToLogin = useCallback(() => {
+    router.replace('/(auth)/login');
+  }, [router]);
+
+  const handleHardwareBack = useCallback(() => {
+    if (step > 1) {
+      setStep((prev) => prev - 1);
+      return true;
+    }
+    return goToLoginOnBack(router);
+  }, [router, step]);
+
+  useAuthBackHandler(handleHardwareBack);
 
   const form1 = useForm<Step1Values>({
     resolver: zodResolver(step1Schema),
@@ -438,9 +453,13 @@ export default function RegisterScreen() {
 
             <Text className="mt-6 text-center text-sm text-muted">
               Already have an account?{' '}
-              <Link href="/(auth)/login" asChild>
-                <Text className="font-inter-medium text-primary">Sign in</Text>
-              </Link>
+              <Text
+                onPress={goToLogin}
+                className="font-inter-medium text-primary"
+                accessibilityRole="link"
+              >
+                Sign in
+              </Text>
             </Text>
           </Card>
         </ScrollView>

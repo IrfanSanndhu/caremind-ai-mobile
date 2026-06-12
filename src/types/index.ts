@@ -9,6 +9,7 @@ export type UserRole = (typeof UserRole)[keyof typeof UserRole];
 
 export const AppointmentStatus = {
   SCHEDULED: 'scheduled',
+  PENDING_APPROVAL: 'pending_approval',
   IN_PROGRESS: 'in_progress',
   COMPLETED: 'completed',
   CANCELLED: 'cancelled',
@@ -65,6 +66,7 @@ export interface User {
   patientProfileId?: string;
   primaryDoctorId?: string | null;
   primaryDoctorName?: string | null;
+  timezone?: string | null;
 }
 
 export interface AuthContext {
@@ -307,7 +309,16 @@ export interface LiveKitTokenResponse {
   token: string;
   roomName: string;
   livekitUrl: string;
+  appointmentStatus?: AppointmentStatus;
 }
+
+export interface LiveParticipant {
+  identity: string;
+  name: string;
+  role?: string;
+}
+
+export type LivePresenceMap = Record<string, { participants: LiveParticipant[] }>;
 
 export interface MfaSetupResponse {
   otpAuthUrl: string;

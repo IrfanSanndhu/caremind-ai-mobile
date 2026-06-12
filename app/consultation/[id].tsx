@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Audio } from 'expo-av';
 import * as ImagePicker from 'expo-image-picker';
 import {
@@ -11,7 +11,8 @@ import {
 } from '@livekit/react-native';
 import { AlertTriangle } from 'lucide-react-native';
 import { appointmentsApi, appointmentKeys } from '@/api/appointments.api';
-import { consultationsApi } from '@/api/consultations.api';
+import { consultationsApi, consultationKeys } from '@/api/consultations.api';
+import { dashboardKeys } from '@/api/dashboard.api';
 import { getApiErrorMessage } from '@/api/errors';
 import { Button, Card, Spinner } from '@/components/ui';
 import { ConsultationVideoRoom } from '@/components/consultation/ConsultationVideoRoom';
@@ -90,6 +91,7 @@ function ConsentGate({
 export default function ConsultationRoomScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const role = useAuthStore((s) => s.role);
   const startSession = useConsultationSessionStore((s) => s.startSession);
   const endSession = useConsultationSessionStore((s) => s.endSession);
@@ -160,12 +162,17 @@ export default function ConsultationRoomScreen() {
         appointment: activeAppointment,
         isMinimized: false,
       });
+      void queryClient.invalidateQueries({ queryKey: appointmentKeys.detail(appointmentId) });
+      void queryClient.invalidateQueries({ queryKey: appointmentKeys.all });
+      void queryClient.invalidateQueries({ queryKey: dashboardKeys.doctor });
+      void queryClient.invalidateQueries({ queryKey: dashboardKeys.patient });
+      void queryClient.invalidateQueries({ queryKey: consultationKeys.livePresence() });
     } catch (err) {
       setTokenError(getApiErrorMessage(err, 'Failed to join consultation. Please try again.'));
     } finally {
       setTokenLoading(false);
     }
-  }, [appointmentId, activeAppointment, startSession]);
+  }, [appointmentId, activeAppointment, startSession, queryClient]);
 
   useEffect(() => {
     if (

@@ -5,12 +5,14 @@ import type { Appointment } from '@/types';
 export interface DoctorDashboardStats {
   todayAppointments: number;
   pendingAiReviews: number;
+  pendingBookingRequests: number;
   totalScheduled: number;
   inProgressCount: number;
 }
 
 export interface DoctorDashboardData {
   stats: DoctorDashboardStats;
+  pendingBookingRequests: Appointment[];
   inProgressAppointments: Appointment[];
   upcomingAppointments: Appointment[];
 }
@@ -19,10 +21,12 @@ export interface PatientDashboardStats {
   todayAppointments: number;
   totalScheduled: number;
   inProgressCount: number;
+  pendingBookingRequests: number;
 }
 
 export interface PatientDashboardData {
   stats: PatientDashboardStats;
+  pendingBookingRequests: Appointment[];
   inProgressAppointments: Appointment[];
   upcomingAppointments: Appointment[];
 }
@@ -32,11 +36,16 @@ export const dashboardApi = {
     const res = await apiClient.get('/api/dashboard/doctor');
     const raw = unwrap(res) as {
       stats: DoctorDashboardStats;
+      pendingBookingRequests?: Record<string, unknown>[];
       inProgressAppointments: Record<string, unknown>[];
       upcomingAppointments: Record<string, unknown>[];
     };
     return {
-      stats: raw.stats,
+      stats: {
+        ...raw.stats,
+        pendingBookingRequests: raw.stats.pendingBookingRequests ?? 0,
+      },
+      pendingBookingRequests: (raw.pendingBookingRequests ?? []).map(mapAppointment),
       inProgressAppointments: (raw.inProgressAppointments ?? []).map(mapAppointment),
       upcomingAppointments: (raw.upcomingAppointments ?? []).map(mapAppointment),
     };
@@ -46,11 +55,16 @@ export const dashboardApi = {
     const res = await apiClient.get('/api/dashboard/patient');
     const raw = unwrap(res) as {
       stats: PatientDashboardStats;
+      pendingBookingRequests?: Record<string, unknown>[];
       inProgressAppointments: Record<string, unknown>[];
       upcomingAppointments: Record<string, unknown>[];
     };
     return {
-      stats: raw.stats,
+      stats: {
+        ...raw.stats,
+        pendingBookingRequests: raw.stats.pendingBookingRequests ?? 0,
+      },
+      pendingBookingRequests: (raw.pendingBookingRequests ?? []).map(mapAppointment),
       inProgressAppointments: (raw.inProgressAppointments ?? []).map(mapAppointment),
       upcomingAppointments: (raw.upcomingAppointments ?? []).map(mapAppointment),
     };

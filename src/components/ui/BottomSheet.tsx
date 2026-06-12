@@ -21,6 +21,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 const DISMISS_THRESHOLD = 100;
 const DISMISS_VELOCITY = 1.05;
 const DISMISS_DURATION_MS = 240;
+/** Ignore backdrop taps right after open (FAB / button press can bleed through). */
+const BACKDROP_GUARD_MS = 400;
 
 export interface BottomSheetProps {
   visible: boolean;
@@ -51,6 +53,7 @@ export function BottomSheet({
   const backdropOpacity = useSharedValue(0);
   const onCloseRef = useRef(onClose);
   const isDismissingRef = useRef(false);
+  const openedAtRef = useRef(0);
   onCloseRef.current = onClose;
 
   const finishDismiss = useCallback(() => {
@@ -84,26 +87,29 @@ export function BottomSheet({
     [backdropOpacity, dragY, finishDismiss, screenHeight],
   );
 
+  const handleBackdropPress = useCallback(() => {
+    if (Date.now() - openedAtRef.current < BACKDROP_GUARD_MS) return;
+    startDismiss();
+  }, [startDismiss]);
+
   useEffect(() => {
     if (visible) {
+      openedAtRef.current = Date.now();
       isDismissingRef.current = false;
       dragY.value = 0;
       backdropOpacity.value = withTiming(1, { duration: 180 });
     }
   }, [visible, dragY, backdropOpacity]);
 
-  const panResponder = useMemo(
+  const handlePanResponder = useMemo(
     () =>
       PanResponder.create({
+        onStartShouldSetPanResponder: () =>
+          enableDragToClose && !isDismissingRef.current,
         onMoveShouldSetPanResponder: (_event, gesture) =>
           enableDragToClose &&
           !isDismissingRef.current &&
-          gesture.dy > 2 &&
-          Math.abs(gesture.dy) > Math.abs(gesture.dx),
-        onMoveShouldSetPanResponderCapture: (_event, gesture) =>
-          enableDragToClose &&
-          !isDismissingRef.current &&
-          gesture.dy > 2 &&
+          gesture.dy > 4 &&
           Math.abs(gesture.dy) > Math.abs(gesture.dx),
         onPanResponderMove: (_event, gesture) => {
           if (isDismissingRef.current) return;
@@ -143,53 +149,82 @@ export function BottomSheet({
     <Modal
       visible={visible}
       transparent
-      animationType="none"
+      animationType="fade"
+      statusBarTranslucent
       onRequestClose={() => startDismiss()}
     >
       <GestureHandlerRootView style={styles.root}>
-        <View style={styles.container}>
+        <View style={styles.container} pointerEvents="box-none">
           <Pressable
-            style={StyleSheet.absoluteFill}
-            onPress={() => startDismiss()}
+            style={styles.backdrop}
+            onPress={handleBackdropPress}
             accessibilityLabel="Close sheet"
           >
             <Animated.View
-              style={[StyleSheet.absoluteFill, backdropStyle]}
-              className="bg-slate-900/40"
+              style={[StyleSheet.absoluteFillObject, backdropStyle]}
+              className="bg-slate-900/50"
             />
           </Pressable>
 
           <Animated.View
-            style={sheetStyle}
+            style={[styles.sheet, sheetStyle]}
             className={cn(
               'rounded-t-[20px] border border-border bg-white shadow-2xl',
               className,
             )}
+            collapsable={false}
           >
-            <View {...panResponder.panHandlers}>
-              {showHandle ? (
-                <View className="items-center py-4" accessibilityLabel="Swipe down to close">
-                  <View className="h-1.5 w-12 rounded-full bg-slate-300" />
-                </View>
-              ) : null}
-
-              {(title || subtitle) && (
-                <View className="border-b border-border px-5 pb-4 pt-0">
-                  {title ? (
-                    <Text className="text-lg font-inter-semibold text-slate-900">{title}</Text>
-                  ) : null}
-                  {subtitle ? (
-                    <Text className="mt-1 text-sm text-muted">{subtitle}</Text>
-                  ) : null}
-                </View>
-              )}
-
+            {enableDragToClose ? (
               <View
-                className={cn('px-5 pt-2', contentClassName)}
-                style={{ paddingBottom: Math.max(insets.bottom, 16) }}
+                {...handlePanResponder.panHandlers}
+                className="items-center px-5 pt-3"
+                accessibilityLabel="Swipe down to close"
               >
-                {children}
+                {showHandle ? (
+                  <View className="mb-2 h-1.5 w-12 rounded-full bg-slate-300" />
+                ) : null}
+                {(title || subtitle) && (
+                  <View className={cn('w-full', showHandle ? 'pb-3' : 'py-2')}>
+                    {title ? (
+                      <Text className="text-lg font-inter-semibold text-slate-900">{title}</Text>
+                    ) : null}
+                    {subtitle ? (
+                      <Text className="mt-1 text-sm text-muted">{subtitle}</Text>
+                    ) : null}
+                  </View>
+                )}
+                {(title || subtitle) && <View className="w-full border-b border-border" />}
               </View>
+            ) : (
+              <>
+                {showHandle ? (
+                  <View className="items-center py-4">
+                    <View className="h-1.5 w-12 rounded-full bg-slate-300" />
+                  </View>
+                ) : null}
+                {(title || subtitle) && (
+                  <View
+                    className={cn(
+                      'border-b border-border px-5 pb-4',
+                      showHandle ? 'pt-0' : 'pt-4',
+                    )}
+                  >
+                    {title ? (
+                      <Text className="text-lg font-inter-semibold text-slate-900">{title}</Text>
+                    ) : null}
+                    {subtitle ? (
+                      <Text className="mt-1 text-sm text-muted">{subtitle}</Text>
+                    ) : null}
+                  </View>
+                )}
+              </>
+            )}
+
+            <View
+              className={cn('px-5 pt-2', contentClassName)}
+              style={{ paddingBottom: Math.max(insets.bottom, 16) }}
+            >
+              {children}
             </View>
           </Animated.View>
         </View>
@@ -205,5 +240,15 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: 'flex-end',
+  },
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 0,
+  },
+  sheet: {
+    width: '100%',
+    zIndex: 1,
+    elevation: 24,
+    maxHeight: '92%',
   },
 });
