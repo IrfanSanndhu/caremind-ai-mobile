@@ -22,6 +22,7 @@ export function Textarea({
   inputClassName,
   className,
   editable = true,
+  style,
   onFocus,
   onBlur,
   ...props
@@ -65,7 +66,7 @@ export function Textarea({
             inputClassName,
             className,
           )}
-          style={{ minHeight: minHeight - 24 }}
+          style={[{ minHeight: Math.max(minHeight - 24, 20), color: colors.slate900 }, style]}
           {...props}
         />
       </View>

@@ -5,15 +5,7 @@ import { Activity, Eye, EyeOff, Shield } from 'lucide-react-native';
 import { useCallback, useState } from 'react';
 import { exitAppOnBack, useAuthBackHandler } from '@/hooks/useAuthBackHandler';
 import { Controller, useForm } from 'react-hook-form';
-import {
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { z } from 'zod';
 
@@ -197,11 +189,7 @@ export default function LoginScreen() {
         className="absolute inset-0"
       />
 
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        className="flex-1"
-        style={{ paddingTop: insets.top, paddingBottom: insets.bottom }}
-      >
+      <View className="flex-1" style={{ paddingTop: insets.top, paddingBottom: insets.bottom }}>
         <ScrollView
           contentContainerClassName="flex-grow justify-center px-5 py-8"
           keyboardShouldPersistTaps="handled"
@@ -389,7 +377,7 @@ export default function LoginScreen() {
               )}
           </Card>
         </ScrollView>
-      </KeyboardAvoidingView>
+      </View>
 
       <BottomSheet
         visible={trustPromptOpen}

@@ -4,11 +4,13 @@ import {
   Modal,
   PanResponder,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   useWindowDimensions,
   View,
 } from 'react-native';
+import { useKeyboardHeight } from '@/hooks/useKeyboardHeight';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, {
   runOnJS,
@@ -48,6 +50,7 @@ export function BottomSheet({
   contentClassName,
 }: BottomSheetProps) {
   const insets = useSafeAreaInsets();
+  const keyboardHeight = useKeyboardHeight();
   const { height: screenHeight } = useWindowDimensions();
   const dragY = useSharedValue(0);
   const backdropOpacity = useSharedValue(0);
@@ -220,12 +223,17 @@ export function BottomSheet({
               </>
             )}
 
-            <View
-              className={cn('px-5 pt-2', contentClassName)}
-              style={{ paddingBottom: Math.max(insets.bottom, 16) }}
+            <ScrollView
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+              bounces={false}
+              contentContainerClassName={cn('px-5 pt-2', contentClassName)}
+              contentContainerStyle={{
+                paddingBottom: Math.max(insets.bottom, 16) + keyboardHeight,
+              }}
             >
               {children}
-            </View>
+            </ScrollView>
           </Animated.View>
         </View>
       </GestureHandlerRootView>

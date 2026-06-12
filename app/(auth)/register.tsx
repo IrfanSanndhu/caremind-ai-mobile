@@ -6,8 +6,6 @@ import { useCallback, useState } from 'react';
 import { goToLoginOnBack, useAuthBackHandler } from '@/hooks/useAuthBackHandler';
 import { Controller, useForm } from 'react-hook-form';
 import {
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
   ScrollView,
   Text,
@@ -220,11 +218,7 @@ export default function RegisterScreen() {
         className="absolute inset-0"
       />
 
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        className="flex-1"
-        style={{ paddingTop: insets.top, paddingBottom: insets.bottom }}
-      >
+      <View className="flex-1" style={{ paddingTop: insets.top, paddingBottom: insets.bottom }}>
         <ScrollView
           contentContainerClassName="flex-grow justify-center px-5 py-8"
           keyboardShouldPersistTaps="handled"
@@ -463,7 +457,7 @@ export default function RegisterScreen() {
             </Text>
           </Card>
         </ScrollView>
-      </KeyboardAvoidingView>
+      </View>
     </View>
   );
 }

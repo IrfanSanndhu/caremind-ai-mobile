@@ -1,8 +1,10 @@
 import { Redirect, Tabs, useSegments } from 'expo-router';
 import { View } from 'react-native';
+import { KeyboardAwareView } from '@/components/layout/KeyboardAwareView';
 import { TabBar } from '@/components/layout/TabBar';
 import { Spinner } from '@/components/ui';
 import { useAuthStore } from '@/stores/auth.store';
+import { useKeyboardStore } from '@/stores/keyboard.store';
 
 function shouldHideTabBar(segments: string[]): boolean {
   const appSegments = segments[0] === '(app)' ? segments.slice(1) : [...segments];
@@ -36,7 +38,8 @@ export default function AppLayout() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const hasHydrated = useAuthStore((s) => s._hasHydrated);
   const segments = useSegments();
-  const hideTabBar = shouldHideTabBar(segments as string[]);
+  const keyboardHeight = useKeyboardStore((s) => s.height);
+  const hideTabBar = shouldHideTabBar(segments as string[]) || keyboardHeight > 0;
 
   if (!hasHydrated) {
     return (
@@ -51,14 +54,15 @@ export default function AppLayout() {
   }
 
   return (
-    <Tabs
-      initialRouteName="dashboard/index"
-      tabBar={(props) => (hideTabBar ? null : <TabBar {...props} />)}
-      screenOptions={{
-        headerShown: false,
-        tabBarStyle: hideTabBar ? { display: 'none' } : undefined,
-      }}
-    >
+    <KeyboardAwareView>
+      <Tabs
+        initialRouteName="dashboard/index"
+        tabBar={(props) => (hideTabBar ? null : <TabBar {...props} />)}
+        screenOptions={{
+          headerShown: false,
+          tabBarStyle: hideTabBar ? { display: 'none' } : undefined,
+        }}
+      >
       <Tabs.Screen name="dashboard/index" options={{ title: 'Dashboard' }} />
       <Tabs.Screen name="appointments" options={{ title: 'Appointments' }} />
       <Tabs.Screen name="booking/index" options={{ title: 'Book' }} />
@@ -71,6 +75,7 @@ export default function AppLayout() {
       <Tabs.Screen name="admin/audit-logs" options={{ href: null }} />
       <Tabs.Screen name="ai-assistant/index" options={{ href: null }} />
       <Tabs.Screen name="ai-outputs" options={{ href: null }} />
-    </Tabs>
+      </Tabs>
+    </KeyboardAwareView>
   );
 }

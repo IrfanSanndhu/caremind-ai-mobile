@@ -27,6 +27,7 @@ export function Input({
   inputClassName,
   className,
   editable = true,
+  style,
   onFocus,
   onBlur,
   ...props
@@ -67,6 +68,7 @@ export function Input({
             inputClassName,
             className,
           )}
+          style={[{ color: colors.slate900 }, style]}
           {...props}
         />
         {trailingIcon ? <View className="ml-2">{trailingIcon}</View> : null}

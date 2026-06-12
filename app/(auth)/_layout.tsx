@@ -1,4 +1,5 @@
 import { Stack } from 'expo-router';
+import { KeyboardAwareView } from '@/components/layout/KeyboardAwareView';
 
 const authScreenOptions = {
   headerShown: false,
@@ -8,11 +9,13 @@ const authScreenOptions = {
 
 export default function AuthLayout() {
   return (
-    <Stack initialRouteName="login" screenOptions={authScreenOptions}>
-      <Stack.Screen name="login" />
-      <Stack.Screen name="register" />
-      <Stack.Screen name="forgot-password" />
-      <Stack.Screen name="reset-password" />
-    </Stack>
+    <KeyboardAwareView>
+      <Stack initialRouteName="login" screenOptions={authScreenOptions}>
+        <Stack.Screen name="login" />
+        <Stack.Screen name="register" />
+        <Stack.Screen name="forgot-password" />
+        <Stack.Screen name="reset-password" />
+      </Stack>
+    </KeyboardAwareView>
   );
 }

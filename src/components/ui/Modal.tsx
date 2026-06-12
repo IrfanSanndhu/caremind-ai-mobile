@@ -4,12 +4,14 @@ import { type ReactNode } from 'react';
 import {
   Modal as RNModal,
   Pressable,
+  ScrollView,
   Text,
   View,
   type ModalProps as RNModalProps,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '@/constants/colors';
+import { useKeyboardHeight } from '@/hooks/useKeyboardHeight';
 
 export interface ModalProps {
   visible: boolean;
@@ -33,6 +35,7 @@ export function Modal({
   presentation = 'overFullScreen',
 }: ModalProps) {
   const insets = useSafeAreaInsets();
+  const keyboardHeight = useKeyboardHeight();
 
   return (
     <RNModal
@@ -50,7 +53,7 @@ export function Modal({
         />
 
         <View
-          style={{ paddingBottom: Math.max(insets.bottom, 16) }}
+          style={{ paddingBottom: Math.max(insets.bottom, 16) + keyboardHeight }}
           className={cn(
             'max-h-[92%] rounded-t-[20px] border border-border bg-white',
             className,
@@ -78,7 +81,13 @@ export function Modal({
             </View>
           )}
 
-          <View className={cn('px-5 py-4', contentClassName)}>{children}</View>
+          <ScrollView
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+            contentContainerClassName={cn('px-5 py-4', contentClassName)}
+          >
+            {children}
+          </ScrollView>
         </View>
       </View>
     </RNModal>

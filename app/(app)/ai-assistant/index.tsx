@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   FlatList,
-  KeyboardAvoidingView,
   Platform,
   Pressable,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
@@ -16,11 +16,10 @@ import {
   Square,
   Stethoscope,
 } from 'lucide-react-native';
-import { Avatar, Select, Textarea } from '@/components/ui';
+import { Avatar, Select } from '@/components/ui';
 import { MarkdownContent } from '@/components/shared/MarkdownContent';
 import { AppHeader } from '@/components/layout/AppHeader';
-import { SCROLL_BOTTOM_INSET } from '@/components/layout/TabBar';
-import { aiApi } from '@/api/ai.api';
+import { aiApi, revealTextProgressively } from '@/api/ai.api';
 import { appointmentsApi, appointmentKeys } from '@/api/appointments.api';
 import { useAuthStore } from '@/stores/auth.store';
 import { UserRole, type ChatMessage } from '@/types';
@@ -174,28 +173,32 @@ export default function AiAssistantIndexScreen() {
         return;
       }
 
-      aiApi
+      void aiApi
         .doctorCopilot(
           { patientId: selectedPatientId, q: text },
           abortControllerRef.current.signal,
         )
-        .then((res) => {
+        .then(async (res) => {
           if (stoppedByUserRef.current) return;
           if (res.escalated) setEscalated(true);
-          setMessages((prev) => [
-            ...prev,
-            {
-              id: createMessageId(),
-              role: 'assistant',
-              content: res.response,
-              timestamp: new Date().toISOString(),
-              escalated: res.escalated,
+          await revealTextProgressively(
+            res.response,
+            (chunk) => {
+              streamContentRef.current += chunk;
+              setStreamingContent(streamContentRef.current);
             },
-          ]);
+            abortControllerRef.current?.signal,
+          );
+          if (stoppedByUserRef.current) return;
+          finalizeStream(streamContentRef.current, res.escalated);
         })
         .catch((err: unknown) => {
           if (stoppedByUserRef.current) return;
+          if (err instanceof Error && err.name === 'AbortError') return;
           const msg = err instanceof Error ? err.message : String(err);
+          setIsStreaming(false);
+          setStreamingContent('');
+          streamContentRef.current = '';
           setMessages((prev) => [
             ...prev,
             {
@@ -205,12 +208,6 @@ export default function AiAssistantIndexScreen() {
               timestamp: new Date().toISOString(),
             },
           ]);
-        })
-        .finally(() => {
-          if (!stoppedByUserRef.current) {
-            setIsStreaming(false);
-            setStreamingContent('');
-          }
         });
 
       return;
@@ -312,11 +309,7 @@ export default function AiAssistantIndexScreen() {
   const isStaff = role === UserRole.DOCTOR || role === UserRole.ADMIN;
 
   return (
-    <KeyboardAvoidingView
-      className="flex-1 bg-surface"
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
-    >
+    <View className="flex-1 bg-surface">
       <AppHeader
         subtitle={isDoctorMode ? 'Doctor Copilot Mode' : 'Patient Assistant Mode'}
       />
@@ -394,49 +387,59 @@ export default function AiAssistantIndexScreen() {
         </View>
       ) : null}
 
-      {messages.length === 0 && !isStreaming ? (
-        <View className="flex-1 items-center justify-center px-8">
-          <View className="mb-4 h-16 w-16 items-center justify-center rounded-2xl bg-primary-50">
-            <BrainCircuit size={32} color={colors.primary.DEFAULT} />
+      <View className="min-h-0 flex-1">
+        {messages.length === 0 && !isStreaming ? (
+          <View className="flex-1 items-center justify-center px-8">
+            <View className="mb-4 h-16 w-16 items-center justify-center rounded-2xl bg-primary-50">
+              <BrainCircuit size={32} color={colors.primary.DEFAULT} />
+            </View>
+            <Text className="text-center text-lg font-inter-semibold text-slate-700">
+              {isDoctorMode ? 'Doctor Copilot Ready' : 'How can I help you?'}
+            </Text>
+            <Text className="mt-2 text-center text-sm text-muted">
+              {isDoctorMode
+                ? 'Generate clinical notes, summarize cases, or assist with documentation.'
+                : 'Ask about medications, symptoms, or appointment preparation.'}
+            </Text>
           </View>
-          <Text className="text-center text-lg font-inter-semibold text-slate-700">
-            {isDoctorMode ? 'Doctor Copilot Ready' : 'How can I help you?'}
-          </Text>
-          <Text className="mt-2 text-center text-sm text-muted">
-            {isDoctorMode
-              ? 'Generate clinical notes, summarize cases, or assist with documentation.'
-              : 'Ask about medications, symptoms, or appointment preparation.'}
-          </Text>
-        </View>
-      ) : (
-        <FlatList
-          ref={listRef}
-          inverted
-          data={listData}
-          keyExtractor={(item) => item.id}
-          renderItem={renderItem}
-          contentContainerStyle={{
-            paddingHorizontal: 16,
-            paddingTop: 12,
-            paddingBottom: 12,
-          }}
-          keyboardShouldPersistTaps="handled"
-        />
-      )}
+        ) : (
+          <FlatList
+            ref={listRef}
+            inverted
+            data={listData}
+            keyExtractor={(item) => item.id}
+            renderItem={renderItem}
+            contentContainerStyle={{
+              paddingHorizontal: 16,
+              paddingTop: 12,
+              paddingBottom: 12,
+            }}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="interactive"
+          />
+        )}
+      </View>
 
-      <View
-        className="border-t border-border bg-white px-4 pt-3"
-        style={{ paddingBottom: SCROLL_BOTTOM_INSET }}
-      >
-        <View className="flex-row items-end gap-2 rounded-xl border border-border bg-surface p-3">
-          <Textarea
+      <View className="border-t border-border bg-white px-4 pb-3 pt-3">
+        <View className="flex-row items-end gap-2 rounded-xl border border-border bg-white px-3 py-2">
+          <TextInput
             value={input}
             onChangeText={setInput}
             placeholder={isDoctorMode ? 'Ask your clinical question...' : 'Type a message...'}
-            minHeight={44}
-            containerClassName="flex-1"
-            className="text-base"
+            placeholderTextColor={colors.slate400}
+            multiline
+            maxLength={4000}
             editable={!isStreaming}
+            textAlignVertical="center"
+            style={{
+              flex: 1,
+              minHeight: 44,
+              maxHeight: 120,
+              paddingVertical: Platform.OS === 'ios' ? 10 : 8,
+              fontSize: 16,
+              lineHeight: 22,
+              color: colors.slate900,
+            }}
           />
           {isStreaming ? (
             <Pressable
@@ -464,6 +467,6 @@ export default function AiAssistantIndexScreen() {
           AI responses may not be medically accurate
         </Text>
       </View>
-    </KeyboardAvoidingView>
+    </View>
   );
 }

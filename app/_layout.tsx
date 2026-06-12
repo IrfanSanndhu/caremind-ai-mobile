@@ -19,6 +19,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { setAuthStoreGetter } from '@/api/client';
+import { KeyboardProvider } from '@/components/layout/KeyboardProvider';
 import { ToastProvider } from '@/components/ui';
 import { useHydrateAuthProfile } from '@/hooks/useAuthProfile';
 import { setUnauthorizedHandler } from '@/lib/navigation';
@@ -148,19 +149,21 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <QueryClientProvider client={queryClient}>
-          <ToastProvider>
-            <RootErrorBoundary>
-              <AuthBootstrap>
+          <KeyboardProvider>
+            <ToastProvider>
+              <RootErrorBoundary>
+                <AuthBootstrap>
                 <StatusBar style="light" translucent />
                 <Stack screenOptions={{ headerShown: false, animation: 'fade' }}>
                   <Stack.Screen name="index" />
                   <Stack.Screen name="(auth)" />
                   <Stack.Screen name="(app)" />
-                  <Stack.Screen name="consultation/[id]" options={{ presentation: 'fullScreenModal' }} />
+                  <Stack.Screen name="consultation" options={{ presentation: 'fullScreenModal' }} />
                 </Stack>
-              </AuthBootstrap>
-            </RootErrorBoundary>
-          </ToastProvider>
+                </AuthBootstrap>
+              </RootErrorBoundary>
+            </ToastProvider>
+          </KeyboardProvider>
         </QueryClientProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
