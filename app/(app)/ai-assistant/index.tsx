@@ -6,7 +6,10 @@ import {
   Text,
   TextInput,
   View,
+  type TextInput as TextInputType,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
 import {
   AlertTriangle,
@@ -18,7 +21,6 @@ import {
 } from 'lucide-react-native';
 import { Avatar, Select } from '@/components/ui';
 import { MarkdownContent } from '@/components/shared/MarkdownContent';
-import { AppHeader } from '@/components/layout/AppHeader';
 import { aiApi, revealTextProgressively } from '@/api/ai.api';
 import { appointmentsApi, appointmentKeys } from '@/api/appointments.api';
 import { useAuthStore } from '@/stores/auth.store';
@@ -79,6 +81,7 @@ type ListItem =
   | { type: 'streaming'; id: string; content: string };
 
 export default function AiAssistantIndexScreen() {
+  const insets = useSafeAreaInsets();
   const role = useAuthStore((s) => s.role);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
@@ -91,9 +94,16 @@ export default function AiAssistantIndexScreen() {
   const [selectedPatientId, setSelectedPatientId] = useState('');
 
   const listRef = useRef<FlatList<ListItem>>(null);
+  const inputRef = useRef<TextInputType>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const streamContentRef = useRef('');
   const stoppedByUserRef = useRef(false);
+
+  const focusComposer = useCallback(() => {
+    requestAnimationFrame(() => {
+      inputRef.current?.focus();
+    });
+  }, []);
 
   const { data: appointments } = useQuery({
     queryKey: appointmentKeys.list({ pageSize: 20 }),
@@ -113,22 +123,30 @@ export default function AiAssistantIndexScreen() {
     return items.reverse();
   }, [messages, isStreaming, streamingContent]);
 
-  const finalizeStream = useCallback((content: string, isEscalated = false) => {
-    const trimmed = content.trim();
-    if (trimmed) {
-      const aiMsg: ChatMessage = {
-        id: createMessageId(),
-        role: 'assistant',
-        content: trimmed,
-        timestamp: new Date().toISOString(),
-        escalated: isEscalated,
-      };
-      setMessages((prev) => [...prev, aiMsg]);
-    }
+  const endStreaming = useCallback(() => {
     setIsStreaming(false);
     setStreamingContent('');
     streamContentRef.current = '';
-  }, []);
+    focusComposer();
+  }, [focusComposer]);
+
+  const finalizeStream = useCallback(
+    (content: string, isEscalated = false) => {
+      const trimmed = content.trim();
+      if (trimmed) {
+        const aiMsg: ChatMessage = {
+          id: createMessageId(),
+          role: 'assistant',
+          content: trimmed,
+          timestamp: new Date().toISOString(),
+          escalated: isEscalated,
+        };
+        setMessages((prev) => [...prev, aiMsg]);
+      }
+      endStreaming();
+    },
+    [endStreaming],
+  );
 
   const stopGeneration = useCallback(() => {
     stoppedByUserRef.current = true;
@@ -155,12 +173,12 @@ export default function AiAssistantIndexScreen() {
     setIsStreaming(true);
     setStreamingContent('');
     setEscalated(false);
+    focusComposer();
 
     abortControllerRef.current = new AbortController();
 
     if (isDoctorMode) {
       if (!selectedPatientId) {
-        setIsStreaming(false);
         setMessages((prev) => [
           ...prev,
           {
@@ -170,6 +188,7 @@ export default function AiAssistantIndexScreen() {
             timestamp: new Date().toISOString(),
           },
         ]);
+        endStreaming();
         return;
       }
 
@@ -196,9 +215,6 @@ export default function AiAssistantIndexScreen() {
           if (stoppedByUserRef.current) return;
           if (err instanceof Error && err.name === 'AbortError') return;
           const msg = err instanceof Error ? err.message : String(err);
-          setIsStreaming(false);
-          setStreamingContent('');
-          streamContentRef.current = '';
           setMessages((prev) => [
             ...prev,
             {
@@ -208,6 +224,7 @@ export default function AiAssistantIndexScreen() {
               timestamp: new Date().toISOString(),
             },
           ]);
+          endStreaming();
         });
 
       return;
@@ -230,9 +247,6 @@ export default function AiAssistantIndexScreen() {
       },
       (error) => {
         if (stoppedByUserRef.current) return;
-        setIsStreaming(false);
-        setStreamingContent('');
-        streamContentRef.current = '';
         setMessages((prev) => [
           ...prev,
           {
@@ -242,6 +256,7 @@ export default function AiAssistantIndexScreen() {
             timestamp: new Date().toISOString(),
           },
         ]);
+        endStreaming();
       },
       abortControllerRef.current.signal,
       () => {
@@ -249,7 +264,24 @@ export default function AiAssistantIndexScreen() {
         finalizeStream(streamContentRef.current);
       },
     );
-  }, [input, isStreaming, selectedAppointmentId, isDoctorMode, selectedPatientId, finalizeStream]);
+  }, [
+    input,
+    isStreaming,
+    selectedAppointmentId,
+    isDoctorMode,
+    selectedPatientId,
+    finalizeStream,
+    endStreaming,
+    focusComposer,
+  ]);
+
+  const handleInputChange = useCallback(
+    (text: string) => {
+      if (isStreaming) return;
+      setInput(text);
+    },
+    [isStreaming],
+  );
 
   const clearChat = useCallback(() => {
     stoppedByUserRef.current = true;
@@ -310,73 +342,82 @@ export default function AiAssistantIndexScreen() {
 
   return (
     <View className="flex-1 bg-surface">
-      <AppHeader
-        subtitle={isDoctorMode ? 'Doctor Copilot Mode' : 'Patient Assistant Mode'}
-      />
-
-      <View className="border-b border-border bg-white px-4 py-3">
-        <View className="mb-2 flex-row items-center justify-between gap-2">
-          <View className="min-w-0 flex-1 flex-row items-center gap-2">
-            <View className="h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary-50">
-              <BrainCircuit size={20} color={colors.primary.DEFAULT} />
+      <LinearGradient
+        colors={[colors.primary[700], colors.primary.DEFAULT, colors.primary[500]]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+      >
+        <View className="px-4 pb-4" style={{ paddingTop: insets.top + 12 }}>
+          <View className="mb-2 flex-row items-center justify-between gap-2">
+            <View className="min-w-0 flex-1 flex-row items-center gap-2">
+              <View className="h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/20">
+                <BrainCircuit size={20} color={colors.white} />
+              </View>
+              <Text className="flex-1 text-sm text-white/85">
+                {isDoctorMode
+                  ? 'Ask clinical questions with patient context'
+                  : 'Ask about medications, symptoms, or appointments'}
+              </Text>
             </View>
-            <Text className="flex-1 text-sm text-muted">
-              {isDoctorMode
-                ? 'Ask clinical questions with patient context'
-                : 'Ask about medications, symptoms, or appointments'}
-            </Text>
-          </View>
-          <View className="shrink-0 flex-row items-center gap-1">
-            {messages.length > 0 ? (
-              <Pressable
-                onPress={clearChat}
-                className="h-9 w-9 items-center justify-center rounded-md active:bg-surface"
-                accessibilityLabel="Clear chat"
-              >
-                <RotateCcw size={18} color={colors.muted} />
-              </Pressable>
-            ) : null}
-            {isStaff ? (
-              <Pressable
-                onPress={() => setIsDoctorMode((v) => !v)}
-                className={cn(
-                  'flex-row items-center gap-2 rounded-lg px-3 py-2',
-                  isDoctorMode ? 'bg-secondary' : 'border border-border bg-surface active:bg-slate-100',
-                )}
-                accessibilityLabel="Toggle doctor copilot mode"
-              >
-                <Stethoscope size={16} color={isDoctorMode ? colors.white : colors.muted} />
-                <Text
-                  className={cn(
-                    'text-sm font-inter-medium',
-                    isDoctorMode ? 'text-white' : 'text-muted',
-                  )}
+            <View className="shrink-0 flex-row items-center gap-1">
+              {messages.length > 0 ? (
+                <Pressable
+                  onPress={clearChat}
+                  className="h-9 w-9 items-center justify-center rounded-md active:bg-white/15"
+                  accessibilityLabel="Clear chat"
                 >
-                  {isDoctorMode ? 'Copilot Mode' : 'Switch to Copilot'}
-                </Text>
-              </Pressable>
-            ) : null}
+                  <RotateCcw size={18} color={colors.white} />
+                </Pressable>
+              ) : null}
+              {isStaff ? (
+                <Pressable
+                  onPress={() => setIsDoctorMode((v) => !v)}
+                  className={cn(
+                    'flex-row items-center gap-2 rounded-lg px-3 py-2',
+                    isDoctorMode
+                      ? 'bg-white'
+                      : 'border border-white/35 bg-white/15 active:bg-white/25',
+                  )}
+                  accessibilityLabel="Toggle doctor copilot mode"
+                >
+                  <Stethoscope
+                    size={16}
+                    color={isDoctorMode ? colors.secondary.DEFAULT : colors.white}
+                  />
+                  <Text
+                    className={cn(
+                      'text-sm font-inter-medium',
+                      isDoctorMode ? 'text-secondary' : 'text-white',
+                    )}
+                  >
+                    {isDoctorMode ? 'Copilot Mode' : 'Switch to Copilot'}
+                  </Text>
+                </Pressable>
+              ) : null}
+            </View>
           </View>
+
+          {!isDoctorMode && appointmentOptions.length > 0 ? (
+            <Select
+              placeholder="No appointment context"
+              value={selectedAppointmentId || null}
+              options={[{ value: '', label: 'No appointment context' }, ...appointmentOptions]}
+              onChange={setSelectedAppointmentId}
+              disabled={isStreaming}
+            />
+          ) : null}
+
+          {isDoctorMode ? (
+            <Select
+              placeholder="Select a patient"
+              value={selectedPatientId || null}
+              options={[{ value: '', label: 'Select a patient' }, ...patientOptions]}
+              onChange={setSelectedPatientId}
+              disabled={isStreaming}
+            />
+          ) : null}
         </View>
-
-        {!isDoctorMode && appointmentOptions.length > 0 ? (
-          <Select
-            placeholder="No appointment context"
-            value={selectedAppointmentId || null}
-            options={[{ value: '', label: 'No appointment context' }, ...appointmentOptions]}
-            onChange={setSelectedAppointmentId}
-          />
-        ) : null}
-
-        {isDoctorMode ? (
-          <Select
-            placeholder="Select a patient"
-            value={selectedPatientId || null}
-            options={[{ value: '', label: 'Select a patient' }, ...patientOptions]}
-            onChange={setSelectedPatientId}
-          />
-        ) : null}
-      </View>
+      </LinearGradient>
 
       {escalated ? (
         <View className="flex-row items-center gap-3 border-b border-danger/20 bg-red-50 px-4 py-3">
@@ -398,7 +439,7 @@ export default function AiAssistantIndexScreen() {
             </Text>
             <Text className="mt-2 text-center text-sm text-muted">
               {isDoctorMode
-                ? 'Generate clinical notes, summarize cases, or assist with documentation.'
+                ? 'Generate clinical notes, summarize cases, or assist with documentation for a patient selected above. For help with a single consultation, or for broader questions about a visit, turn off Copilot Mode and pick an appointment instead.'
                 : 'Ask about medications, symptoms, or appointment preparation.'}
             </Text>
           </View>
@@ -415,7 +456,7 @@ export default function AiAssistantIndexScreen() {
               paddingBottom: 12,
             }}
             keyboardShouldPersistTaps="handled"
-            keyboardDismissMode="interactive"
+            keyboardDismissMode="on-drag"
           />
         )}
       </View>
@@ -423,13 +464,15 @@ export default function AiAssistantIndexScreen() {
       <View className="border-t border-border bg-white px-4 pb-3 pt-3">
         <View className="flex-row items-end gap-2 rounded-xl border border-border bg-white px-3 py-2">
           <TextInput
+            ref={inputRef}
             value={input}
-            onChangeText={setInput}
+            onChangeText={handleInputChange}
             placeholder={isDoctorMode ? 'Ask your clinical question...' : 'Type a message...'}
             placeholderTextColor={colors.slate400}
             multiline
             maxLength={4000}
-            editable={!isStreaming}
+            blurOnSubmit={false}
+            showSoftInputOnFocus
             textAlignVertical="center"
             style={{
               flex: 1,
@@ -439,6 +482,7 @@ export default function AiAssistantIndexScreen() {
               fontSize: 16,
               lineHeight: 22,
               color: colors.slate900,
+              opacity: isStreaming ? 0.55 : 1,
             }}
           />
           {isStreaming ? (
@@ -452,7 +496,7 @@ export default function AiAssistantIndexScreen() {
           ) : (
             <Pressable
               onPress={sendMessage}
-              disabled={!input.trim()}
+              disabled={!input.trim() || isStreaming}
               className={cn(
                 'mb-1 h-10 w-10 items-center justify-center rounded-lg active:opacity-90',
                 input.trim() ? 'bg-primary' : 'bg-border',
