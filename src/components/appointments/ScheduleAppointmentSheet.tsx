@@ -3,7 +3,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { Platform, Pressable, ScrollView, Text, View } from 'react-native';
+import { Platform, Pressable, Text, View } from 'react-native';
 import { z } from 'zod';
 
 import { appointmentsApi, appointmentKeys } from '@/api/appointments.api';
@@ -190,8 +190,7 @@ export function ScheduleAppointmentSheet({
       subtitle="Create an appointment for a patient"
       enableDragToClose={!createMutation.isPending}
     >
-      <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-        <View className="gap-4 pb-2">
+      <View className="gap-4 pb-2">
           {noDoctors ? (
             <Text className="rounded-lg bg-surface p-3 text-sm text-muted">
               No doctors found. Invite a doctor first before scheduling appointments.
@@ -298,8 +297,7 @@ export function ScheduleAppointmentSheet({
               Schedule
             </Button>
           </View>
-        </View>
-      </ScrollView>
+      </View>
     </BottomSheet>
   );
 }

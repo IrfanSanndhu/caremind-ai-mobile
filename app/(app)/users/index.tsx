@@ -335,12 +335,12 @@ function UsersScreen() {
             }
             refreshing={isRefetching}
             onRefresh={() => void refetch()}
-            contentContainerStyle={{ paddingBottom: 16 }}
+            contentContainerStyle={{ paddingBottom: 88 }}
           />
         )}
       </View>
 
-      <View className="absolute bottom-28 right-4 items-end gap-3">
+      <View className="absolute bottom-5 right-5 items-end gap-3">
         {fabMenuOpen ? (
           <>
             <Pressable
@@ -370,7 +370,7 @@ function UsersScreen() {
           accessibilityLabel="Invite users"
           className="h-14 w-14 items-center justify-center rounded-full bg-primary shadow-lg active:opacity-90"
         >
-          <Plus size={26} color={colors.white} />
+          <Plus size={24} color={colors.white} strokeWidth={2.5} />
         </Pressable>
       </View>
 
@@ -382,7 +382,6 @@ function UsersScreen() {
         }}
         title="Invite Doctor"
         subtitle="Send an invitation to join as a doctor"
-        contentClassName="max-h-[80%]"
       >
         <View className="gap-3 pb-2">
           <Input
@@ -447,7 +446,6 @@ function UsersScreen() {
         }}
         title="Invite Patient"
         subtitle="Send an invitation to join as a patient"
-        contentClassName="max-h-[85%]"
       >
         <View className="gap-3 pb-2">
           <Input

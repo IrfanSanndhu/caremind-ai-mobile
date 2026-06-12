@@ -140,6 +140,8 @@ export function BottomSheet({
     [backdropOpacity, dragY, enableDragToClose, screenHeight, startDismiss],
   );
 
+  const maxSheetHeight = screenHeight * 0.92 - insets.top;
+
   const sheetStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: dragY.value }],
   }));
@@ -170,7 +172,7 @@ export function BottomSheet({
           </Pressable>
 
           <Animated.View
-            style={[styles.sheet, sheetStyle]}
+            style={[styles.sheet, sheetStyle, { maxHeight: maxSheetHeight }]}
             className={cn(
               'rounded-t-[20px] border border-border bg-white shadow-2xl',
               className,
@@ -224,9 +226,11 @@ export function BottomSheet({
             )}
 
             <ScrollView
+              style={styles.scroll}
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
               bounces={false}
+              nestedScrollEnabled
               contentContainerClassName={cn('px-5 pt-2', contentClassName)}
               contentContainerStyle={{
                 paddingBottom: Math.max(insets.bottom, 16) + keyboardHeight,
@@ -257,6 +261,10 @@ const styles = StyleSheet.create({
     width: '100%',
     zIndex: 1,
     elevation: 24,
-    maxHeight: '92%',
+    flexDirection: 'column',
+  },
+  scroll: {
+    flexGrow: 0,
+    flexShrink: 1,
   },
 });
