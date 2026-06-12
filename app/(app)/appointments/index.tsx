@@ -300,7 +300,7 @@ export default function AppointmentsScreen() {
   }, [fetchNextPage, hasNextPage, isFetchingNextPage, searchLower]);
 
   const isStaff = role === UserRole.DOCTOR || role === UserRole.ADMIN;
-  const showFab = isStaff || role === UserRole.PATIENT;
+  const showFab = isStaff;
 
   const listHeader = (
     <View className="mb-4">
@@ -403,15 +403,9 @@ export default function AppointmentsScreen() {
 
       {showFab ? (
         <Pressable
-          onPress={() => {
-            if (isStaff) {
-              setScheduleOpen(true);
-            } else {
-              router.push('/(app)/booking' as never);
-            }
-          }}
+          onPress={() => setScheduleOpen(true)}
           accessibilityRole="button"
-          accessibilityLabel={isStaff ? 'Schedule appointment' : 'Book appointment'}
+          accessibilityLabel="Schedule appointment"
           className="absolute bottom-5 right-5 h-14 w-14 items-center justify-center rounded-full bg-primary shadow-lg active:opacity-90"
           style={{
             shadowColor: colors.primary.DEFAULT,
