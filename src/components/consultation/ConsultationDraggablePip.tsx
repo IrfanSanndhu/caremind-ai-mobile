@@ -1,101 +1,173 @@
-import { type ReactNode, useCallback, useEffect, useState } from 'react';
-import { View, useWindowDimensions } from 'react-native';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-} from 'react-native-reanimated';
-import { GripHorizontal } from 'lucide-react-native';
+import {
+  type ReactNode,
+  useCallback,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import {
+  PanResponder,
+  Pressable,
+  View,
+  type LayoutChangeEvent,
+} from 'react-native';
+import { SwitchCamera } from 'lucide-react-native';
 import { colors } from '@/constants/colors';
 import { cn } from '@/utils/cn';
 
 const PIP_MARGIN = 12;
-const BOTTOM_SAFE = 128;
-const PIP_WIDTH = 140;
+export const PIP_WIDTH = 104;
+export const PIP_HEIGHT = PIP_WIDTH * (4 / 3);
 
 interface ConsultationDraggablePipProps {
   children: ReactNode;
   className?: string;
+  showSwitchCamera?: boolean;
+  onSwitchCamera?: () => void;
 }
 
-export function ConsultationDraggablePip({ children, className }: ConsultationDraggablePipProps) {
-  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
-  const pipHeight = PIP_WIDTH * (4 / 3);
+export function ConsultationDraggablePip({
+  children,
+  className,
+  showSwitchCamera = false,
+  onSwitchCamera,
+}: ConsultationDraggablePipProps) {
+  const boundsSize = useRef({ width: 0, height: 0 });
+  const dragOrigin = useRef({ x: 0, y: 0 });
+  const movedRef = useRef(false);
 
-  const translateX = useSharedValue(screenWidth - PIP_WIDTH - PIP_MARGIN);
-  const translateY = useSharedValue(screenHeight - pipHeight - BOTTOM_SAFE);
-  const startX = useSharedValue(0);
-  const startY = useSharedValue(0);
+  const [position, setPosition] = useState<{ x: number; y: number } | null>(null);
   const [dragging, setDragging] = useState(false);
+  const positionRef = useRef(position);
+  positionRef.current = position;
 
   const clampPosition = useCallback(
-    (x: number, y: number) => ({
-      x: Math.min(Math.max(PIP_MARGIN, x), screenWidth - PIP_WIDTH - PIP_MARGIN),
-      y: Math.min(Math.max(PIP_MARGIN, y), screenHeight - pipHeight - PIP_MARGIN),
-    }),
-    [screenWidth, screenHeight, pipHeight],
+    (x: number, y: number) => {
+      const { width, height } = boundsSize.current;
+      if (!width || !height) return { x, y };
+      return {
+        x: Math.min(Math.max(PIP_MARGIN, x), width - PIP_WIDTH - PIP_MARGIN),
+        y: Math.min(Math.max(PIP_MARGIN, y), height - PIP_HEIGHT - PIP_MARGIN),
+      };
+    },
+    [],
   );
 
-  useEffect(() => {
-    const pos = clampPosition(
-      screenWidth - PIP_WIDTH - PIP_MARGIN,
-      screenHeight - pipHeight - BOTTOM_SAFE,
+  const placeDefault = useCallback(() => {
+    const { width, height } = boundsSize.current;
+    if (!width || !height) return;
+    setPosition(
+      clampPosition(width - PIP_WIDTH - PIP_MARGIN, height - PIP_HEIGHT - PIP_MARGIN),
     );
-    translateX.value = pos.x;
-    translateY.value = pos.y;
-  }, [screenWidth, screenHeight, pipHeight, clampPosition, translateX, translateY]);
+  }, [clampPosition]);
 
-  const panGesture = Gesture.Pan()
-    .onBegin(() => {
-      startX.value = translateX.value;
-      startY.value = translateY.value;
-    })
-    .onStart(() => {
-      setDragging(true);
-    })
-    .onUpdate((event) => {
-      const next = clampPosition(
-        startX.value + event.translationX,
-        startY.value + event.translationY,
-      );
-      translateX.value = next.x;
-      translateY.value = next.y;
-    })
-    .onEnd(() => {
-      setDragging(false);
-    })
-    .onFinalize(() => {
-      setDragging(false);
-    });
+  const onBoundsLayout = useCallback(
+    (event: LayoutChangeEvent) => {
+      boundsSize.current = {
+        width: event.nativeEvent.layout.width,
+        height: event.nativeEvent.layout.height,
+      };
+      if (position === null) {
+        placeDefault();
+      }
+    },
+    [placeDefault, position],
+  );
 
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: translateX.value }, { translateY: translateY.value }],
-  }));
+  useLayoutEffect(() => {
+    if (position !== null) return;
+    placeDefault();
+  }, [placeDefault, position]);
+
+  const clampRef = useRef(clampPosition);
+  clampRef.current = clampPosition;
+
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponder: (_, gesture) =>
+          Math.abs(gesture.dx) > 2 || Math.abs(gesture.dy) > 2,
+        onPanResponderGrant: () => {
+          dragOrigin.current = positionRef.current ?? { x: PIP_MARGIN, y: PIP_MARGIN };
+          movedRef.current = false;
+          setDragging(true);
+        },
+        onPanResponderMove: (_, gesture) => {
+          if (Math.abs(gesture.dx) > 2 || Math.abs(gesture.dy) > 2) {
+            movedRef.current = true;
+          }
+          setPosition(
+            clampRef.current(
+              dragOrigin.current.x + gesture.dx,
+              dragOrigin.current.y + gesture.dy,
+            ),
+          );
+        },
+        onPanResponderRelease: () => setDragging(false),
+        onPanResponderTerminate: () => setDragging(false),
+      }),
+    [],
+  );
 
   return (
-    <View className="absolute inset-0" pointerEvents="box-none">
-      <GestureDetector gesture={panGesture}>
-        <Animated.View
-          style={[
-            animatedStyle,
-            {
-              position: 'absolute',
-              width: PIP_WIDTH,
-              height: pipHeight,
-            },
-          ]}
-          className={cn(
-            'overflow-hidden rounded-2xl border border-white/10 bg-slate-900 shadow-2xl',
-            dragging && 'scale-[1.02] border-white/20',
-            className,
-          )}
+    <View
+      className="absolute inset-0"
+      pointerEvents="box-none"
+      onLayout={onBoundsLayout}
+      collapsable={false}
+    >
+      <View
+        pointerEvents="box-none"
+        style={{
+          position: 'absolute',
+          left: position?.x ?? PIP_MARGIN,
+          top: position?.y ?? PIP_MARGIN,
+          width: PIP_WIDTH,
+          height: PIP_HEIGHT,
+          zIndex: 50,
+          elevation: 50,
+        }}
+        className={cn(
+          'overflow-hidden rounded-2xl border border-white/10 bg-slate-900 shadow-2xl',
+          dragging && 'border-white/20',
+          className,
+        )}
+        collapsable={false}
+      >
+        {/* Video must not receive touches — RTCView/SurfaceView crashes on Android */}
+        <View
+          style={{ width: PIP_WIDTH, height: PIP_HEIGHT }}
+          pointerEvents="none"
+          collapsable={false}
         >
-          <View className="absolute inset-x-0 top-0 z-10 items-center bg-black/40 py-0.5">
-            <GripHorizontal size={18} color={colors.slate400} />
-          </View>
           {children}
-        </Animated.View>
-      </GestureDetector>
+        </View>
+
+        {/* Transparent drag layer over the whole tile — move by touching anywhere */}
+        <View
+          {...panResponder.panHandlers}
+          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+          collapsable={false}
+        />
+
+        {/* Switch camera control, above the drag layer so it stays tappable */}
+        {showSwitchCamera ? (
+          <Pressable
+            onPress={() => {
+              if (!movedRef.current) onSwitchCamera?.();
+            }}
+            hitSlop={10}
+            accessibilityRole="button"
+            accessibilityLabel="Switch camera"
+            style={{ position: 'absolute', top: 5, right: 5, zIndex: 30, elevation: 30 }}
+            className="h-7 w-7 items-center justify-center rounded-full border border-white/40 bg-black/65 active:bg-primary"
+          >
+            <SwitchCamera size={15} color={colors.white} />
+          </Pressable>
+        ) : null}
+      </View>
     </View>
   );
 }

@@ -3,7 +3,7 @@ import { Pressable, Text, View } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import { Calendar, Plus, Search } from 'lucide-react-native';
+import { Calendar, Plus, Search, Video } from 'lucide-react-native';
 import { appointmentsApi, appointmentKeys } from '@/api/appointments.api';
 import { bookingApi } from '@/api/booking.api';
 import { dashboardKeys } from '@/api/dashboard.api';
@@ -115,9 +115,11 @@ function AppointmentListItem({
               {showJoin ? (
                 <Button
                   size="sm"
-                  variant="outline"
+                  variant="primary"
                   disabled={actionLoading}
                   onPress={onJoin}
+                  className="shadow-lg shadow-primary/30"
+                  leftIcon={<Video size={16} color={colors.white} />}
                 >
                   Join
                 </Button>

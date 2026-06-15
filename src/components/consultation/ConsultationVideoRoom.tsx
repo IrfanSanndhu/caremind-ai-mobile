@@ -1,14 +1,14 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { useMemo } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { useCallback, useMemo, useState } from 'react';
+import { Pressable, Text, View, type LayoutChangeEvent } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
-  VideoTrack,
-  isTrackReference,
+  useLocalParticipant,
   useParticipants,
+  useRemoteParticipants,
   useTracks,
-  type TrackReference,
 } from '@livekit/react-native';
-import { Track } from 'livekit-client';
+import { LocalVideoTrack, Track } from 'livekit-client';
 import {
   ChevronRight,
   Circle,
@@ -23,10 +23,13 @@ import { useToast } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { useConsultationSessionStore } from '@/stores/consultation-session.store';
 import { cn } from '@/utils/cn';
-import { buildParticipantLabels, getCallTitle, resolveParticipantLabel } from './consultation-participants';
+import { buildParticipantLabels, getCallTitle } from './consultation-participants';
+import { findLocalCameraTrack, findRemoteCameraTrack } from './consultation-camera-tracks';
 import { ConsultationCallControls } from './ConsultationCallControls';
-import { ConsultationDraggablePip } from './ConsultationDraggablePip';
+import { ConsultationDraggablePip, PIP_HEIGHT, PIP_WIDTH } from './ConsultationDraggablePip';
 import { ConsultationTranscriptPanel } from './ConsultationTranscriptPanel';
+import { ConsultationVideoTile } from './ConsultationVideoTile';
+import { RemoteTrackSubscriber } from './RemoteTrackSubscriber';
 
 interface ConsultationVideoRoomProps {
   appointment: Appointment;
@@ -39,6 +42,7 @@ export function ConsultationVideoRoom({
   isDoctor,
   onLeave,
 }: ConsultationVideoRoomProps) {
+  const insets = useSafeAreaInsets();
   const { show: showToast } = useToast();
   const sidePanelOpen = useConsultationSessionStore((s) => s.sidePanelOpen);
   const isRecording = useConsultationSessionStore((s) => s.isRecording);
@@ -46,15 +50,45 @@ export function ConsultationVideoRoom({
   const toggleSidePanel = useConsultationSessionStore((s) => s.toggleSidePanel);
   const setRecording = useConsultationSessionStore((s) => s.setRecording);
 
+  const [stageSize, setStageSize] = useState({ width: 0, height: 0 });
+  const [isFrontCamera, setIsFrontCamera] = useState(true);
+
   const labels = useMemo(() => buildParticipantLabels(appointment), [appointment]);
   const callTitle = getCallTitle(appointment);
 
+  const { localParticipant, isCameraEnabled } = useLocalParticipant();
+
+  const handleSwitchCamera = useCallback(async () => {
+    const publication = localParticipant?.getTrackPublication(Track.Source.Camera);
+    const track = publication?.track;
+    if (!(track instanceof LocalVideoTrack)) return;
+    const nextFacing = isFrontCamera ? 'environment' : 'user';
+    try {
+      await track.restartTrack({ facingMode: nextFacing });
+      setIsFrontCamera((prev) => !prev);
+    } catch {
+      // Device may only have one camera — ignore.
+    }
+  }, [localParticipant, isFrontCamera]);
   const participants = useParticipants();
-  const tracks = useTracks([{ source: Track.Source.Camera, withPlaceholder: true }]);
-  const cameraTracks = tracks.filter(isTrackReference).filter((t) => t.source === Track.Source.Camera);
-  const localTrack = cameraTracks.find((t) => t.participant.isLocal) as TrackReference | undefined;
-  const remoteTrack = cameraTracks.find((t) => !t.participant.isLocal) as TrackReference | undefined;
-  const remoteCount = participants.filter((p) => !p.isLocal).length;
+  const remoteParticipants = useRemoteParticipants();
+  const primaryRemote = remoteParticipants[0];
+
+  const tracks = useTracks(
+    [{ source: Track.Source.Camera, withPlaceholder: true }],
+    { onlySubscribed: false },
+  );
+  const localCameraTrack = findLocalCameraTrack(tracks, localParticipant);
+  const remoteCameraTrack = findRemoteCameraTrack(tracks);
+  const participantCount = participants.length;
+  const stageReady = stageSize.width > 0 && stageSize.height > 0;
+
+  const onStageLayout = (event: LayoutChangeEvent) => {
+    const { width, height } = event.nativeEvent.layout;
+    if (width > 0 && height > 0) {
+      setStageSize({ width, height });
+    }
+  };
 
   const { data: transcript } = useQuery({
     queryKey: consultationKeys.transcript(appointment.id),
@@ -69,7 +103,7 @@ export function ConsultationVideoRoom({
       setRecording(data.id);
       showToast({ title: 'Live transcription started', variant: 'success' });
     },
-    onError: () => showToast({ title: 'Failed to start recording', variant: 'error' }),
+    onError: () => showToast({ title: 'Failed to stop recording', variant: 'error' }),
   });
 
   const stopRecordingMutation = useMutation({
@@ -92,17 +126,14 @@ export function ConsultationVideoRoom({
   const isLive = isRecording || transcript?.isLive;
   const hasTranscript = Boolean(displayContent?.trim());
 
-  const remoteLabel = remoteTrack
-    ? resolveParticipantLabel(
-        remoteTrack.participant.identity,
-        remoteTrack.participant.name,
-        labels,
-      )
-    : null;
-
   return (
     <View className="flex-1 bg-slate-950">
-      <View className="z-20 flex-row items-center justify-between border-b border-white/5 bg-slate-950/90 px-4 py-3">
+      <RemoteTrackSubscriber />
+
+      <View
+        className="z-20 flex-row items-center justify-between border-b border-white/5 bg-slate-950/90 px-4 py-3"
+        style={{ paddingTop: insets.top + 12 }}
+      >
         <View className="min-w-0 flex-1">
           <Text className="text-[10px] font-inter-semibold uppercase tracking-widest text-primary-100">
             CareMind
@@ -127,7 +158,7 @@ export function ConsultationVideoRoom({
               leftIcon={
                 <Circle
                   size={10}
-                  color={isRecording ? colors.white : colors.white}
+                  color={colors.white}
                   fill={isRecording ? colors.white : 'transparent'}
                 />
               }
@@ -153,28 +184,48 @@ export function ConsultationVideoRoom({
       </View>
 
       <View className="relative min-h-0 flex-1 flex-row">
-        <View className="relative min-h-0 flex-1 bg-slate-950">
-          {remoteCount > 0 ? (
-            <View className="absolute left-4 top-4 z-10">
+        <View
+          className="relative min-h-0 flex-1"
+          collapsable={false}
+          onLayout={onStageLayout}
+        >
+          {participantCount > 0 ? (
+            <View
+              className="absolute left-4 top-4 z-30"
+              pointerEvents="none"
+              style={{ elevation: 30 }}
+            >
               <View className="flex-row items-center gap-1.5 rounded-full border border-white/10 bg-black/50 px-3 py-1">
                 <View className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
                 <Text className="text-xs font-inter-medium text-white/90">
-                  {remoteCount} in call
+                  {participantCount} in call
                 </Text>
               </View>
             </View>
           ) : null}
 
-          {remoteTrack ? (
-            <View className="absolute inset-0">
-              <VideoTrack trackRef={remoteTrack} style={{ width: '100%', height: '100%' }} />
-              {remoteLabel ? (
-                <View className="absolute bottom-4 left-4 rounded-lg bg-black/50 px-3 py-1.5">
-                  <Text className="text-sm font-inter-medium text-white">{remoteLabel}</Text>
-                </View>
-              ) : null}
+          {primaryRemote && stageReady && remoteCameraTrack ? (
+            <View
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: stageSize.width,
+                height: stageSize.height,
+              }}
+              pointerEvents="none"
+              collapsable={false}
+            >
+              <ConsultationVideoTile
+                trackRef={remoteCameraTrack}
+                labels={labels}
+                variant="main"
+                width={stageSize.width}
+                height={stageSize.height}
+                zOrder={0}
+              />
             </View>
-          ) : (
+          ) : primaryRemote && !stageReady ? null : (
             <View className="flex-1 items-center justify-center gap-4 px-6">
               <View className="h-20 w-20 items-center justify-center rounded-full border border-white/10 bg-white/5">
                 <Users size={36} color="rgba(255,255,255,0.3)" />
@@ -188,9 +239,20 @@ export function ConsultationVideoRoom({
             </View>
           )}
 
-          {localTrack ? (
-            <ConsultationDraggablePip>
-              <VideoTrack trackRef={localTrack} style={{ width: '100%', height: '100%' }} />
+          {localCameraTrack ? (
+            <ConsultationDraggablePip
+              showSwitchCamera={isCameraEnabled}
+              onSwitchCamera={handleSwitchCamera}
+            >
+              <ConsultationVideoTile
+                trackRef={localCameraTrack}
+                labels={labels}
+                variant="pip"
+                width={PIP_WIDTH}
+                height={PIP_HEIGHT}
+                zOrder={1}
+                mirror={isFrontCamera}
+              />
             </ConsultationDraggablePip>
           ) : null}
         </View>
@@ -226,7 +288,7 @@ export function ConsultationVideoRoom({
         ) : null}
       </View>
 
-      <ConsultationCallControls onLeave={onLeave} />
+      <ConsultationCallControls onLeave={onLeave} bottomInset={insets.bottom} />
     </View>
   );
 }

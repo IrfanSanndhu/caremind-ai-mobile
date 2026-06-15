@@ -1,10 +1,10 @@
+import { View } from 'react-native';
 import { Stack } from 'expo-router';
-import { KeyboardAwareView } from '@/components/layout/KeyboardAwareView';
 
 export default function ConsultationLayout() {
   return (
-    <KeyboardAwareView>
+    <View style={{ flex: 1 }}>
       <Stack screenOptions={{ headerShown: false, animation: 'fade' }} />
-    </KeyboardAwareView>
+    </View>
   );
 }

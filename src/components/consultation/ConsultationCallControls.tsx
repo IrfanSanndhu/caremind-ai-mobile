@@ -11,9 +11,10 @@ import { useConsultationSessionStore } from '@/stores/consultation-session.store
 
 interface ConsultationCallControlsProps {
   onLeave: () => void;
+  bottomInset?: number;
 }
 
-export function ConsultationCallControls({ onLeave }: ConsultationCallControlsProps) {
+export function ConsultationCallControls({ onLeave, bottomInset = 0 }: ConsultationCallControlsProps) {
   const room = useRoomContext();
   const { isMicrophoneEnabled, isCameraEnabled, localParticipant } = useLocalParticipant();
   const [busy, setBusy] = useState(false);
@@ -22,6 +23,8 @@ export function ConsultationCallControls({ onLeave }: ConsultationCallControlsPr
     setBusy(true);
     try {
       await localParticipant.setMicrophoneEnabled(!isMicrophoneEnabled);
+    } catch {
+      // Mic hardware can fail on some devices — don't crash the app
     } finally {
       setBusy(false);
     }
@@ -31,6 +34,8 @@ export function ConsultationCallControls({ onLeave }: ConsultationCallControlsPr
     setBusy(true);
     try {
       await localParticipant.setCameraEnabled(!isCameraEnabled);
+    } catch {
+      // Camera hardware can fail on some devices — don't crash the app
     } finally {
       setBusy(false);
     }
@@ -48,7 +53,7 @@ export function ConsultationCallControls({ onLeave }: ConsultationCallControlsPr
   };
 
   return (
-    <View className="px-4 pb-8 pt-3">
+    <View className="px-4 pt-3" style={{ paddingBottom: Math.max(bottomInset, 20) }}>
       <View
         className={cn(
           'mx-auto max-w-md flex-row items-center justify-center gap-3',

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -108,14 +108,30 @@ export default function ConsultationRoomScreen() {
   const [tokenError, setTokenError] = useState('');
 
   const appointmentId = typeof id === 'string' ? id : '';
+  const leavingRef = useRef(false);
 
-  const { data: fetchedAppointment, isLoading: appointmentLoading } = useQuery({
+  const {
+    data: fetchedAppointment,
+    isLoading: appointmentLoading,
+    isError: appointmentError,
+    error: appointmentQueryError,
+    refetch: refetchAppointment,
+  } = useQuery({
     queryKey: appointmentKeys.detail(appointmentId),
     queryFn: () => appointmentsApi.get(appointmentId),
     enabled: Boolean(appointmentId),
   });
 
-  const activeAppointment = appointment ?? fetchedAppointment;
+  const activeAppointment =
+    fetchedAppointment ??
+    (appointment?.id === appointmentId ? appointment : undefined);
+
+  const sessionReady =
+    sessionStatus === 'active' &&
+    sessionAppointmentId === appointmentId &&
+    Boolean(token) &&
+    Boolean(livekitUrl);
+
   const isDoctor = role === UserRole.DOCTOR || role === UserRole.ADMIN;
 
   const needsConsent =
@@ -124,12 +140,28 @@ export default function ConsultationRoomScreen() {
     !consentGranted;
 
   useEffect(() => {
+    leavingRef.current = false;
+  }, [appointmentId]);
+
+  useEffect(() => {
+    if (
+      sessionStatus === 'active' &&
+      sessionAppointmentId &&
+      sessionAppointmentId !== appointmentId
+    ) {
+      endSession();
+    }
+  }, [appointmentId, sessionStatus, sessionAppointmentId, endSession]);
+
+  useEffect(() => {
     ensureLiveKitGlobals();
     void AudioSession.startAudioSession();
     return () => {
+      leavingRef.current = true;
+      endSession();
       void AudioSession.stopAudioSession();
     };
-  }, []);
+  }, [endSession]);
 
   useEffect(() => {
     if (!needsConsent && activeAppointment && !permissionsGranted) {
@@ -155,11 +187,16 @@ export default function ConsultationRoomScreen() {
         setTokenError('Recording consent is required before joining.');
         return;
       }
+      const joinedAppointment =
+        res.appointmentStatus && res.appointmentStatus !== activeAppointment.status
+          ? { ...activeAppointment, status: res.appointmentStatus }
+          : activeAppointment;
+
       startSession({
         appointmentId,
         token: res.token,
         livekitUrl: res.livekitUrl,
-        appointment: activeAppointment,
+        appointment: joinedAppointment,
         isMinimized: false,
       });
       void queryClient.invalidateQueries({ queryKey: appointmentKeys.detail(appointmentId) });
@@ -179,13 +216,22 @@ export default function ConsultationRoomScreen() {
       !needsConsent &&
       permissionsGranted &&
       activeAppointment &&
-      sessionStatus !== 'active'
+      !sessionReady &&
+      !tokenError
     ) {
       void fetchToken();
     }
-  }, [needsConsent, permissionsGranted, activeAppointment, sessionStatus, fetchToken]);
+  }, [
+    needsConsent,
+    permissionsGranted,
+    activeAppointment,
+    sessionReady,
+    tokenError,
+    fetchToken,
+  ]);
 
   const handleLeave = useCallback(() => {
+    leavingRef.current = true;
     endSession();
     if (router.canGoBack()) {
       router.back();
@@ -193,6 +239,20 @@ export default function ConsultationRoomScreen() {
       router.replace('/(app)/appointments');
     }
   }, [endSession, router]);
+
+  const handleDisconnected = useCallback(() => {
+    if (leavingRef.current) return;
+    handleLeave();
+  }, [handleLeave]);
+
+  const handleConnectionError = useCallback(
+    (error: Error) => {
+      leavingRef.current = true;
+      endSession();
+      setTokenError(error.message || 'Failed to connect to the consultation room.');
+    },
+    [endSession],
+  );
 
   if (!appointmentId) {
     return (
@@ -249,6 +309,32 @@ export default function ConsultationRoomScreen() {
     );
   }
 
+  if (appointmentError || !activeAppointment) {
+    const appointmentLoadError = getApiErrorMessage(
+      appointmentQueryError,
+      'Could not load this appointment. Please try again.',
+    );
+    return (
+      <View className="flex-1 items-center justify-center bg-slate-900 px-6">
+        <Card className="w-full max-w-sm">
+          <AlertTriangle size={36} color={colors.danger.DEFAULT} style={{ alignSelf: 'center' }} />
+          <Text className="mt-4 text-center text-xl font-inter-semibold text-slate-900">
+            Appointment Unavailable
+          </Text>
+          <Text className="mt-2 text-center text-sm text-muted">{appointmentLoadError}</Text>
+          <View className="mt-5 flex-row gap-3">
+            <Button variant="outline" className="flex-1" onPress={handleLeave}>
+              Back
+            </Button>
+            <Button className="flex-1" onPress={() => void refetchAppointment()}>
+              Retry
+            </Button>
+          </View>
+        </Card>
+      </View>
+    );
+  }
+
   if (tokenError) {
     return (
       <View className="flex-1 items-center justify-center bg-slate-900 px-6">
@@ -271,25 +357,29 @@ export default function ConsultationRoomScreen() {
     );
   }
 
-  if (
-    sessionStatus === 'active' &&
-    sessionAppointmentId === appointmentId &&
-    token &&
-    livekitUrl &&
-    activeAppointment
-  ) {
+  if (sessionReady && token && livekitUrl) {
     return (
       <View className="flex-1 bg-slate-950">
         <LiveKitRoom
+          key={token}
           serverUrl={livekitUrl}
           token={token}
           connect
-          audio
-          video
+          audio={false}
+          video={false}
           options={{
-            adaptiveStream: { pixelDensity: 'screen' },
+            // Force classic dual peer-connection (subscriber-primary) mode.
+            // In single-PC mode (the livekit-client default), react-native-webrtc
+            // does not fire `ontrack` for tracks added during mid-call renegotiation,
+            // so a remote camera turned on after we joined never reaches the decoder.
+            // Dual-PC mode has the server create the subscriber offer, which works.
+            singlePeerConnection: false,
           }}
-          onDisconnected={handleLeave}
+          connectOptions={{
+            autoSubscribe: true,
+          }}
+          onDisconnected={handleDisconnected}
+          onError={handleConnectionError}
         >
           <ConsultationVideoRoom
             appointment={activeAppointment}
@@ -304,6 +394,7 @@ export default function ConsultationRoomScreen() {
   return (
     <View className="flex-1 items-center justify-center bg-slate-950">
       <Spinner size="lg" color={colors.white} />
+      <Text className="mt-4 text-white/80">Preparing consultation room…</Text>
     </View>
   );
 }

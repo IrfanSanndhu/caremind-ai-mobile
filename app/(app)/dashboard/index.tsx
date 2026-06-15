@@ -225,7 +225,13 @@ function DashboardAppointmentRow({
       <AppointmentStatusBadge status={appt.status} />
       {showJoin ? (
         <View onStartShouldSetResponder={() => true}>
-          <Button size="sm" variant="outline" onPress={onJoin}>
+          <Button
+            size="sm"
+            variant="primary"
+            onPress={onJoin}
+            className="shadow-lg shadow-primary/30"
+            leftIcon={<Video size={16} color={colors.white} />}
+          >
             Join
           </Button>
         </View>
